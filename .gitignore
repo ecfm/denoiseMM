@@ -1,0 +1,15 @@
+.idea/
+*.pyc
+*screen*
+*raw_data*
+*sum*
+*res*
+*.out
+*.nfs*
+*vars.txt*
+*.txt*
+*.log*
+*.bak
+*.0
+auto_configs/*
+auto_logs/*
