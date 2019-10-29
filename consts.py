@@ -1,4 +1,4 @@
-from best_metrics import Best
+from metrics import Best
 
 
 class global_consts():
@@ -13,7 +13,7 @@ class global_consts():
     if dataset == "mosi_short":
         data_path = "../../MOSI/"
     else:
-        data_path = "../../../data/"
+        data_path = "../data/"
     embed_path = "/Users/cask/Downloads/glove.840B.300d.txt"
     sentiment = "sad" # for IEMOCAP, choose from happy, angry, sad and neutral
     model_path = "../model/"
