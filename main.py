@@ -16,6 +16,12 @@ from sklearn.metrics import accuracy_score, f1_score
 from consts import global_consts as gc
 from model import Net
 
+def stopTraining(signum, frame):
+    global savedStdout
+    logSummary()
+    sys.stdout = savedStdout
+    sys.exit()
+
 def train_model(config_file_name, model_name):
     save_epochs = [1, 10, 50, 100, 150, 200, 500, 700, 999]
     config_name = ''
@@ -379,6 +385,73 @@ def train_model(config_file_name, model_name):
     #             f.write("%f," % test_cor_at_valid_max)
     #             f.write("%f,\n" % test_acc_at_valid_max)
 
+def eval_mosei_emo(split, output_all, label_all):
+    truths = np.array(label_all).reshape((-1, len(gc.best.mosei_cls)))
+    preds = np.array(output_all).reshape((-1, len(gc.best.mosei_cls)))
+    cls_mae = {}
+    for cls_id, cls in enumerate(gc.best.mosei_cls):
+        mae = np.mean(np.absolute(preds[:, cls_id] - truths[:, cls_id]))
+        cls_mae[cls] = mae
+        print("\t%s %s mae: %f" % (split, cls, round(mae, 3)))
+    return cls_mae
+
+
+def logSummary():
+    print("best epoch: %d" % gc.best.best_epoch)
+    if gc.dataset == "iemocap":
+        for split in ["test", "valid", "test_at_valid_max"]:
+            for em in gc.best.emos:
+                print("highest %s %s F1: %f" % (split, em, gc.best.max_f1[split][em]))
+                print("highest %s %s accuracy: %f" % (split, em, gc.best.max_acc[split][em]))
+    elif gc.dataset == 'pom':
+        for split in gc.best.split:
+            for cls in gc.best.pom_cls:
+                for metric in ['corr', 'acc']:
+                    print("highest %s %s %s: %f" % (split, cls, metric, gc.best.max_pom_metrics[metric][split][cls]))
+                print("best %s MAE %s: %f" % (split, cls, gc.best.best_pom_mae[split][cls]))
+    elif gc.dataset == 'mosei_emo':
+        for cls in gc.best.mosei_cls:
+            print("best %s MAE: %f" % (cls, gc.best.mosei_emo_best_mae[cls]))
+
+    else:
+        print("best epoch: %d" % gc.best.best_epoch)
+        print("lowest training MAE: %f" % gc.best.min_train_mae)
+        print("lowest testing MAE: %f" % gc.best.min_test_mae)
+        print("lowest validation MAE: %f" % gc.best.min_valid_mae)
+        print("test MAE when validation MAE is the lowest: %f" % gc.best.test_mae_at_valid_min)
+
+        print("highest testing F1 MFN: %f" % gc.best.max_test_f1_mfn)
+        print("highest testing F1 RAVEN: %f" % gc.best.max_test_f1_raven)
+        print("highest testing F1 MuIT: %f" % gc.best.max_test_f1_muit)
+
+        print("highest validation F1 MFN: %f" % gc.best.max_valid_f1_mfn)
+        print("highest validation F1 RAVEN: %f" % gc.best.max_valid_f1_raven)
+        print("highest validation F1 MuIT: %f" % gc.best.max_valid_f1_muit)
+
+        print("test F1 MFN when validation F1 is the highest: %f" % gc.best.test_f1_mfn_at_valid_max)
+        print("test F1 RAVEN when validation F1 is the highest: %f" % gc.best.test_f1_raven_at_valid_max)
+        print("test F1 MuIT when validation F1 is the highest: %f" % gc.best.test_f1_muit_at_valid_max)
+
+        print("highest testing correlation: %f" % gc.best.max_test_cor)
+        print("highest validation correlation: %f" % gc.best.max_valid_cor)
+        print("test correlation when validation correlation is the highest: %f" % gc.best.test_cor_at_valid_max)
+
+        print("highest testing accuracy: %f" % gc.best.max_test_acc)
+        print("highest validation accuracy: %f" % gc.best.max_valid_acc)
+        print("test accuracy when validation accuracy is the highest: %f" % gc.best.test_acc_at_valid_max)
+
+        print("highest testing exclude zero accuracy: %f" % gc.best.max_test_ex_zero_acc)
+        print("highest validation exclude zero accuracy: %f" % gc.best.max_valid_ex_zero_acc)
+        print("test ex-zero accuracy when validation ex-zero accuracy is the highest: %f" %
+              gc.best.test_ex_zero_acc_at_valid_max)
+
+        print("highest testing accuracy 5: %f" % gc.best.max_test_acc_5)
+        print("highest validation accuracy 5: %f" % gc.best.max_valid_acc_5)
+        print("test accuracy 5 when validation accuracy 5 is the highest: %f" % gc.best.test_acc_5_at_valid_max)
+
+        print("highest testing accuracy 7: %f" % gc.best.max_test_acc_7)
+        print("highest validation accuracy 7: %f" % gc.best.max_valid_acc_7)
+        print("test accuracy 7 when validation accuracy 7 is the highest: %f" % gc.best.test_acc_7_at_valid_max)
 
 if __name__ == "__main__":
     start_time = time.time()
