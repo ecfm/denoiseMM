@@ -32,13 +32,10 @@ class TransformerEncoder(nn.Module):
         self.norm = Norm(d_model)
 
     def forward(self, inputs):
-        if gc.config['mod'] == 'all':
-            x_l, x_a, x_v = inputs
-            x = torch.cat((x_l, x_a, x_v), -1)
-        else:
-            x = inputs
+        x = inputs
         mask = get_pad_mask(x)
         x = self.pe(x)
         for i in range(self.n_layers):
             x = self.layers[i](x, mask)
         return self.norm(x)
+

@@ -15,12 +15,16 @@ from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
 from model import Net
+from adversary import Adv
 
+
+lambda_q = 0.15
 def stopTraining(signum, frame):
     global savedStdout
     logSummary()
     sys.stdout = savedStdout
     sys.exit()
+
 
 def train_model(config_file_name, model_name):
     save_epochs = [1, 10, 50, 100, 150, 200, 500, 700, 999]
@@ -94,16 +98,14 @@ def train_model(config_file_name, model_name):
     print(net)
     net.to(device)
 
+    adv = Adv()
+
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
     else:
         criterion = nn.MSELoss()
 
-    optimizer = optim.Adam([
-        {'params': net.transformer_encoder.parameters()},
-        {'params': net.finalW.parameters()},
-        {'params': net.gru.parameters(), 'lr': gc.config['gru_lr']}
-    ], betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+    optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
     if gc.load_model and os.path.exists(model_path):
@@ -136,16 +138,14 @@ def train_model(config_file_name, model_name):
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
                 outputs = net(words, covarep, facet, inputLen)
-                if gc.dataset == 'iemocap':
-                    outputs = outputs.view(-1, 2)
-                    labels = labels.view(-1)
+
+                w_output = adv(words)
+                loss = crossentropy(w_output, labels) * lambda_q
+                loss.backward()
+
                 test_output_all.extend(outputs.tolist())
                 test_label_all.extend(labels.tolist())
-            if gc.dataset == "iemocap":
-                test_f1, test_acc = eval_iemocap('test', test_output_all, test_label_all)
-            elif gc.dataset == "pom":
-                test_mae, test_metrics = eval_pom('test', test_output_all, test_label_all)
-            elif gc.dataset == 'mosei_emo':
+            if gc.dataset == 'mosei_emo':
                 test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
             else:
                 test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven, test_f1_muit, \
@@ -160,9 +160,6 @@ def train_model(config_file_name, model_name):
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
                 outputs = net(words, covarep, facet, inputLen)
-                if gc.dataset == 'iemocap':
-                    outputs = outputs.view(-1, 2)
-                    labels = labels.view(-1)
                 output_all.extend(outputs.data.cpu().tolist())
                 label_all.extend(labels.data.cpu().tolist())
             best_model = False
@@ -246,7 +243,6 @@ def train_model(config_file_name, model_name):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 50))
                 running_loss = 0.0
-
 
         if gc.dataset == 'mosei_emo':
             eval_mosei_emo('train', output_all, label_all)

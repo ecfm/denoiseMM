@@ -63,9 +63,9 @@ class global_consts():
 
     best = Best()
 
-    dim_l = -1
-    dim_a = -1
-    dim_v = -1
+    dim_l = 300
+    dim_a = 5
+    dim_v = 20
 
     def logParameters(self):
         print( "Hyperparameters:")
