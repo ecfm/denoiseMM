@@ -34,7 +34,7 @@ class global_consts():
     config = {
       "cuda": 1,
       "lr": 0.01,
-      "epoch_num": 300,
+      "epoch_num": 20,
       "dropout": 0.2,
       "seed": 0,
       "gru_lr": 0.001,
