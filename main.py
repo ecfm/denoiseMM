@@ -45,12 +45,6 @@ def train_model(config_file_name, model_name):
         log_file = "%s/print.log" % dir_path
         f = open(log_file, "w+")
         sys.stdout = f
-    if gc.dataset == "mosi_short":
-        from MOSI_dataset import MOSIDataset
-        ds = MOSIDataset
-    elif gc.dataset == 'mosei_new':
-        from MOSEI_new_dataset import MultimodalDataset
-        ds = MultimodalDataset
     elif gc.dataset == 'mosei_emo':
         from MOSEI_emo_dataset import MoseiEmotionDataset
         ds = MoseiEmotionDataset
@@ -172,96 +166,13 @@ def train_model(config_file_name, model_name):
                 output_all.extend(outputs.data.cpu().tolist())
                 label_all.extend(labels.data.cpu().tolist())
             best_model = False
-            if gc.dataset == "iemocap":
-                valid_f1, valid_acc = eval_iemocap('valid', output_all, label_all)
-                for em in gc.best.emos:
-                    if valid_f1[em] > gc.best.max_f1['valid'][em]:
-                        gc.best.max_f1['valid'][em] = valid_f1[em]
-                        gc.best.max_f1['test_at_valid_max'][em] = test_f1[em]
-                    if valid_acc[em] > gc.best.max_acc['valid'][em]:
-                        gc.best.max_acc['valid'][em] = valid_acc[em]
-                        gc.best.max_acc['test_at_valid_max'][em] = test_acc[em]
-                    if test_f1[em] > gc.best.max_f1['test'][em]:
-                        gc.best.max_f1['test'][em] = test_f1[em]
-                        gc.best.best_epoch = epoch + 1
-                        best_model = True
-                    if test_acc[em] > gc.best.max_acc['test'][em]:
-                        gc.best.max_acc['test'][em] = test_acc[em]
-            elif gc.dataset == "pom":
-                valid_mae, valid_metrics = eval_pom('valid', output_all, label_all)
-                for cls in gc.best.pom_cls:
-                    if valid_mae[cls] < gc.best.best_pom_mae['valid'][cls]:
-                        gc.best.best_pom_mae['valid'][cls] = valid_mae[cls]
-                        gc.best.best_pom_mae['test_at_valid_max'][cls] = test_mae[cls]
-                    if test_mae[cls] < gc.best.best_pom_mae['test'][cls]:
-                        gc.best.best_pom_mae['test'][cls] = test_mae[cls]
-                        gc.best.best_epoch = epoch + 1
-                        best_model = True
-                    for metric in ['acc', 'corr']:
-                        if valid_metrics[metric][cls] > gc.best.max_pom_metrics[metric]['valid'][cls]:
-                            gc.best.max_pom_metrics[metric]['valid'][cls] = valid_metrics[metric][cls]
-                            gc.best.max_pom_metrics[metric]['test_at_valid_max'][cls] = test_metrics[metric][cls]
-                        if test_metrics[metric][cls] > gc.best.max_pom_metrics[metric]['test'][cls]:
-                            gc.best.max_pom_metrics[metric]['test'][cls] = test_metrics[metric][cls]
-            elif gc.dataset == 'mosei_emo':
+
+            if gc.dataset == 'mosei_emo':
                 for cls in gc.best.mosei_cls:
                     if test_mae[cls] < gc.best.mosei_emo_best_mae[cls]:
                         gc.best.mosei_emo_best_mae[cls] = test_mae[cls]
                         gc.best.best_epoch = epoch + 1
                         best_model = True
-            else:
-                if len(output_all) > 0:
-                    valid_mae, valid_cor, valid_acc, valid_acc_7, valid_acc_5, valid_f1_mfn, valid_f1_raven, \
-                    valid_f1_muit, valid_ex_zero_acc = eval_mosi('valid', output_all, label_all)
-                    if valid_mae < gc.best.min_valid_mae:
-                        gc.best.min_valid_mae = valid_mae
-                        gc.best.test_mae_at_valid_min = test_mae
-                    if valid_cor > gc.best.max_valid_cor:
-                        gc.best.max_valid_cor = valid_cor
-                        gc.best.test_cor_at_valid_max = test_cor
-                    if valid_acc > gc.best.max_valid_acc:
-                        gc.best.max_valid_acc = valid_acc
-                        gc.best.test_acc_at_valid_max = test_acc
-                    if valid_ex_zero_acc > gc.best.max_valid_ex_zero_acc:
-                        gc.best.max_valid_ex_zero_acc = valid_ex_zero_acc
-                        gc.best.test_ex_zero_acc_at_valid_max = test_ex_zero_acc
-                    if valid_acc_5 > gc.best.max_valid_acc_5:
-                        gc.best.max_valid_acc_5 = valid_acc_5
-                        gc.best.test_acc_5_at_valid_max = test_acc_5
-                    if valid_acc_7 > gc.best.max_valid_acc_7:
-                        gc.best.max_valid_acc_7 = valid_acc_7
-                        gc.best.test_acc_7_at_valid_max = test_acc_7
-
-                    if valid_f1_mfn > gc.best.max_valid_f1_mfn:
-                        gc.best.max_valid_f1_mfn = valid_f1_mfn
-                        gc.best.test_f1_mfn_at_valid_max = test_f1_mfn
-                    if valid_f1_raven > gc.best.max_valid_f1_raven:
-                        gc.best.max_valid_f1_raven = valid_f1_raven
-                        gc.best.test_f1_raven_at_valid_max = test_f1_raven
-                    if valid_f1_muit > gc.best.max_valid_f1_muit:
-                        gc.best.max_valid_f1_muit = valid_f1_muit
-                        gc.best.test_f1_muit_at_valid_max = test_f1_muit
-
-                    if test_mae < gc.best.min_test_mae:
-                        gc.best.min_test_mae = test_mae
-                        gc.best.best_epoch = epoch + 1
-                        best_model = True
-                    if test_cor > gc.best.max_test_cor:
-                        gc.best.max_test_cor = test_cor
-                    if test_acc > gc.best.max_test_acc:
-                        gc.best.max_test_acc = test_acc
-                    if test_ex_zero_acc > gc.best.max_test_ex_zero_acc:
-                        gc.best.max_test_ex_zero_acc = test_ex_zero_acc
-                    if test_acc_5 > gc.best.max_test_acc_5:
-                        gc.best.max_test_acc_5 = test_acc_5
-                    if test_acc_7 > gc.best.max_test_acc_7:
-                        gc.best.max_test_acc_7 = test_acc_7
-                    if test_f1_mfn > gc.best.max_test_f1_mfn:
-                        gc.best.max_test_f1_mfn = test_f1_mfn
-                    if test_f1_raven > gc.best.max_test_f1_raven:
-                        gc.best.max_test_f1_raven = test_f1_raven
-                    if test_f1_muit > gc.best.max_test_f1_muit:
-                        gc.best.max_test_f1_muit = test_f1_muit
             if best_model:
                 torch.save({
                     'epoch': epoch,
@@ -336,11 +247,8 @@ def train_model(config_file_name, model_name):
                       (epoch + 1, i + 1, running_loss / 50))
                 running_loss = 0.0
 
-        if gc.dataset == "iemocap":
-            eval_iemocap('train', output_all, label_all)
-        elif gc.dataset == 'pom':
-            eval_pom('train', output_all, label_all)
-        elif gc.dataset == 'mosei_emo':
+
+        if gc.dataset == 'mosei_emo':
             eval_mosei_emo('train', output_all, label_all)
         else:
             train_mae = tot_err / tot_num
@@ -363,27 +271,6 @@ def train_model(config_file_name, model_name):
             grad_f.close()
             update_f.close()
 
-    logSummary()
-    # if gc.log_path != None:
-    #     sys.stdout = savedStdout
-    #     with open("%ssummary.csv" % gc.log_path, "a+") as f:
-    #         for arg in arg_dict:
-    #             f.write("%s," % str(arg_dict[arg]))
-    #         f.write("%d," % best_epoch)
-    #         if gc.dataset == "iemocap":
-    #             f.write("%f," % max_test_f1)
-    #             f.write("%f," % max_test_prec)
-    #             f.write("%f," % max_test_recall)
-    #             f.write("%f," % max_test_acc)
-    #             f.write("%f," % test_f1_at_valid_max)
-    #             f.write("%f\n" % test_acc_at_valid_max)
-    #         else:
-    #             f.write("%f," % min_test_mae)
-    #             f.write("%f," % max_test_cor)
-    #             f.write("%f," % max_test_acc)
-    #             f.write("%f," % test_mae_at_valid_min)
-    #             f.write("%f," % test_cor_at_valid_max)
-    #             f.write("%f,\n" % test_acc_at_valid_max)
 
 def eval_mosei_emo(split, output_all, label_all):
     truths = np.array(label_all).reshape((-1, len(gc.best.mosei_cls)))
@@ -398,18 +285,8 @@ def eval_mosei_emo(split, output_all, label_all):
 
 def logSummary():
     print("best epoch: %d" % gc.best.best_epoch)
-    if gc.dataset == "iemocap":
-        for split in ["test", "valid", "test_at_valid_max"]:
-            for em in gc.best.emos:
-                print("highest %s %s F1: %f" % (split, em, gc.best.max_f1[split][em]))
-                print("highest %s %s accuracy: %f" % (split, em, gc.best.max_acc[split][em]))
-    elif gc.dataset == 'pom':
-        for split in gc.best.split:
-            for cls in gc.best.pom_cls:
-                for metric in ['corr', 'acc']:
-                    print("highest %s %s %s: %f" % (split, cls, metric, gc.best.max_pom_metrics[metric][split][cls]))
-                print("best %s MAE %s: %f" % (split, cls, gc.best.best_pom_mae[split][cls]))
-    elif gc.dataset == 'mosei_emo':
+
+    if gc.dataset == 'mosei_emo':
         for cls in gc.best.mosei_cls:
             print("best %s MAE: %f" % (cls, gc.best.mosei_emo_best_mae[cls]))
 
@@ -452,6 +329,7 @@ def logSummary():
         print("highest testing accuracy 7: %f" % gc.best.max_test_acc_7)
         print("highest validation accuracy 7: %f" % gc.best.max_valid_acc_7)
         print("test accuracy 7 when validation accuracy 7 is the highest: %f" % gc.best.test_acc_7_at_valid_max)
+
 
 if __name__ == "__main__":
     start_time = time.time()
