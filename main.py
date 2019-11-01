@@ -17,8 +17,9 @@ from consts import global_consts as gc
 from model import Net
 from adversary import Adv
 
-
 lambda_q = 0.15
+
+
 def stopTraining(signum, frame):
     global savedStdout
     logSummary()
@@ -41,20 +42,8 @@ def train_model(config_file_name, model_name):
 
     global savedStdout
     savedStdout = sys.stdout
-
-    if gc.log_path != None:
-        dir_path = "%s%d" % (gc.log_path, gc.HPID)
-        if not os.path.exists(dir_path):
-            os.mkdir(dir_path)
-        log_file = "%s/print.log" % dir_path
-        f = open(log_file, "w+")
-        sys.stdout = f
-    elif gc.dataset == 'mosei_emo':
-        from MOSEI_emo_dataset import MoseiEmotionDataset
-        ds = MoseiEmotionDataset
-    else:
-        from Multimodal_dataset import MultimodalDataset
-        ds = MultimodalDataset
+    from MOSEI_emo_dataset import MoseiEmotionDataset
+    ds = MoseiEmotionDataset
 
     train_dataset = ds(gc.data_path, cls="train")
     train_loader = Data.DataLoader(
@@ -100,6 +89,8 @@ def train_model(config_file_name, model_name):
 
     adv = Adv()
 
+    cross_entropy = nn.CrossEntropyLoss()
+
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
     else:
@@ -139,17 +130,10 @@ def train_model(config_file_name, model_name):
                     device), inputLen.to(device), labels.to(device)
                 outputs = net(words, covarep, facet, inputLen)
 
-                w_output = adv(words)
-                loss = crossentropy(w_output, labels) * lambda_q
-                loss.backward()
-
                 test_output_all.extend(outputs.tolist())
                 test_label_all.extend(labels.tolist())
             if gc.dataset == 'mosei_emo':
                 test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
-            else:
-                test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven, test_f1_muit, \
-                test_ex_zero_acc = eval_mosi('test', test_output_all, test_label_all)
 
             label_all = []
             output_all = []
@@ -198,6 +182,25 @@ def train_model(config_file_name, model_name):
             optimizer.zero_grad()
 
             outputs = net(words, covarep, facet, inputLen)
+
+            w_output = adv(words)
+
+            adv_copy = type(adv)()
+            adv_copy.load_state_dict(adv.state_dict())
+            net_copy = type(net)()
+            net_copy.load_state_dict(net.state_dict())
+
+            loss = cross_entropy(w_output, labels) * lambda_q
+            loss.backward()
+
+            # copying models
+            c_output = adv_copy(words)
+            f_output = net_copy(words, covarep, facet, inputLen)
+
+            net_adv_loss = cross_entropy(outputs, w_output)
+
+            net_adv_loss.backward()
+
             output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
             if gc.dataset != "iemocap" or gc.dataset != "pom" or gc.dataset != "mosei_emo":
