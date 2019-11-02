@@ -15,7 +15,6 @@ class EncoderLayer(nn.Module):
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
 
-
     def forward(self, x, mask):
         x2 = self.norm_1(x)
         attns = self.attn(x2, x2, x2, mask)
