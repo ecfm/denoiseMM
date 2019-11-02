@@ -199,9 +199,6 @@ def train_model(config_file_name, model_name):
             entropy_c_output = np.mean(sum(c_output * np.log(c_output)))
             entropy_f_output = np.mean(sum(f_output * np.log(f_output)))
 
-            net_adv_loss = cross_entropy(outputs, w_output)
-            net_adv_loss.backward()
-
             c_f_loss = (entropy_f_output - entropy_c_output)
             c_f_loss.backward()
 
@@ -215,7 +212,7 @@ def train_model(config_file_name, model_name):
             if gc.dataset == 'iemocap':
                 outputs = outputs.view(-1, 2)
                 labels = labels.view(-1)
-            loss = criterion(outputs, labels)
+            loss = cross_entropy(outputs, labels)
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=gc.config['max_grad'], norm_type=inf)
             if gc.save_grad and epoch in save_epochs:
