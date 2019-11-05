@@ -211,8 +211,8 @@ def train_model(config_file_name, model_name):
             # copying models
             c_output = adv_copy(words)
             f_output = net_copy(words, covarep, facet, inputLen)
-            entropy_c_output = np.mean(sum(c_output * np.log(c_output)))
-            entropy_f_output = np.mean(sum(f_output * np.log(f_output)))
+            entropy_c_output = torch.mean(c_output * torch.log(c_output))
+            entropy_f_output = torch.mean(f_output * torch.log(f_output))
 
             c_f_loss = (entropy_f_output - entropy_c_output)
             c_f_loss.backward()
