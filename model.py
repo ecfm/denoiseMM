@@ -9,10 +9,7 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         conf = gc.config
-        if gc.config['mod'] == 'all':
-            dim = gc.dim_l + gc.dim_a + gc.dim_v
-        else:
-            dim = getattr(gc, "dim_%s" % gc.config['mod'])
+        dim = getattr(gc, "dim_%s" % gc.config['mod'])
         self.l_transformer_encoder = t_model.TransformerEncoder(gc.dim_l)
         self.a_transformer_encoder = t_model.TransformerEncoder(gc.dim_a)
         self.v_transformer_encoder = t_model.TransformerEncoder(gc.dim_v)
