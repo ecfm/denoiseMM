@@ -1,6 +1,6 @@
 #!/bin/bash
-CONF_DIR="../configs"
-LOG_DIR="../logs"
+CONF_DIR="configs"
+LOG_DIR="logs"
 LAST=''
 #LAST=(conf_b0_cuda0_144 conf_b0_cuda1_193 conf_b0_cuda2_178 conf_b0_cuda3_167)
 START_GPU=$1
