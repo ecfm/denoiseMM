@@ -21,6 +21,7 @@ if __name__ == "__main__":
         "ff_dim_final": [128, 256, 320, 512],
         "n_layers": [6, 7, 8],
         "dim_total_proj": [400, 512, 800],
+        "adv_h_dim" : [64, 128, 256]
     }
     option_lens = [len(options) for options in val_options.values()]
     num_comb = functools.reduce(operator.mul, option_lens, 1)
