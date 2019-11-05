@@ -13,7 +13,7 @@ class global_consts():
     if dataset == "mosi_short":
         data_path = "../../MOSI/"
     else:
-        data_path = "../data/"
+        data_path = "../../data/"
     model_path = "model/"
 
     log_path = None
