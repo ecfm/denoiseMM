@@ -200,8 +200,10 @@ def train_model(config_file_name, model_name):
 
             adv_copy = type(adv)()
             adv_copy.load_state_dict(adv.state_dict())
+            adv_copy.to(device)
             net_copy = type(net)()
             net_copy.load_state_dict(net.state_dict())
+            net_copy.to(device)
 
             loss = criterion(w_output, labels) * lambda_q
             loss.backward()

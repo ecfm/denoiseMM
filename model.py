@@ -25,7 +25,7 @@ class Net(nn.Module):
         state_w = self.l_transformer_encoder(words)
         state_c = self.a_transformer_encoder(covarep)
         state_f = self.v_transformer_encoder(facet)
-        state = torch.concat((state_w,state_c,state_f), -1)
+        state = torch.cat((state_w,state_c,state_f), -1)
         # convert input to GRU from shape [batch_size, seq_len, input_size] to [seq_len, batch_size, input_size]
         _, gru_last_h = self.gru(state.transpose(0, 1))
         return self.finalW(gru_last_h.squeeze()).squeeze()
