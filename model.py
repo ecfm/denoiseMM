@@ -9,10 +9,10 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         conf = gc.config
-        dim = getattr(gc, "dim_%s" % gc.config['mod'])
         self.l_transformer_encoder = t_model.TransformerEncoder(gc.dim_l)
         self.a_transformer_encoder = t_model.TransformerEncoder(gc.dim_a)
         self.v_transformer_encoder = t_model.TransformerEncoder(gc.dim_v)
+        dim = gc.dim_l + gc.dim_a + gc.dim_v
         dim_total_proj = conf['dim_total_proj']
         self.gru = nn.GRU(input_size=dim, hidden_size=dim_total_proj)
         out_dim = 1
