@@ -61,14 +61,6 @@ def train_model(config_file_name, model_name):
         num_workers=1,
     )
 
-    valid_dataset = ds(gc.data_path, cls="valid")
-    valid_loader = Data.DataLoader(
-        dataset=valid_dataset,
-        batch_size=gc.batch_size,
-        shuffle=False,
-        num_workers=1,
-    )
-
     print("HPID:%d:Data Successfully Loaded." % gc.HPID)
 
     if gc.single_gpu:
@@ -86,10 +78,8 @@ def train_model(config_file_name, model_name):
     net = Net()
     print(net)
     net.to(device)
-
     adv = Adv()
-
-    cross_entropy = nn.CrossEntropyLoss()
+    adv.to(device)
 
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
@@ -97,6 +87,7 @@ def train_model(config_file_name, model_name):
         criterion = nn.MSELoss()
 
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+    adv_optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
     if gc.load_model and os.path.exists(model_path):
@@ -105,6 +96,11 @@ def train_model(config_file_name, model_name):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_epoch = checkpoint['epoch']
         gc.best = checkpoint['best']
+
+    if gc.dataset == 'mosei_emo':
+        eval_method = eval_mosei_emo
+    else:
+        eval_method = eval_senti
 
     running_loss = 0.0
     for epoch in range(start_epoch, gc.config['epoch_num']):
@@ -132,28 +128,40 @@ def train_model(config_file_name, model_name):
 
                 test_output_all.extend(outputs.tolist())
                 test_label_all.extend(labels.tolist())
-            if gc.dataset == 'mosei_emo':
-                test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
 
-            label_all = []
-            output_all = []
-            for data in valid_loader:
-                words, covarep, facet, inputLen, labels = data
-                if covarep.size()[0] == 1:
-                    continue
-                words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                    device), inputLen.to(device), labels.to(device)
-                outputs = net(words, covarep, facet, inputLen)
-                output_all.extend(outputs.data.cpu().tolist())
-                label_all.extend(labels.data.cpu().tolist())
             best_model = False
 
             if gc.dataset == 'mosei_emo':
+                test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
                 for cls in gc.best.mosei_cls:
                     if test_mae[cls] < gc.best.mosei_emo_best_mae[cls]:
                         gc.best.mosei_emo_best_mae[cls] = test_mae[cls]
                         gc.best.best_epoch = epoch + 1
                         best_model = True
+            else:
+                test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven, test_f1_muit, \
+                test_ex_zero_acc = eval_senti('test', test_output_all, test_label_all)
+                if len(test_output_all) > 0:
+                    if test_mae < gc.best.min_test_mae:
+                        gc.best.min_test_mae = test_mae
+                        gc.best.best_epoch = epoch + 1
+                        best_model = True
+                    if test_cor > gc.best.max_test_cor:
+                        gc.best.max_test_cor = test_cor
+                    if test_acc > gc.best.max_test_acc:
+                        gc.best.max_test_acc = test_acc
+                    if test_ex_zero_acc > gc.best.max_test_ex_zero_acc:
+                        gc.best.max_test_ex_zero_acc = test_ex_zero_acc
+                    if test_acc_5 > gc.best.max_test_acc_5:
+                        gc.best.max_test_acc_5 = test_acc_5
+                    if test_acc_7 > gc.best.max_test_acc_7:
+                        gc.best.max_test_acc_7 = test_acc_7
+                    if test_f1_mfn > gc.best.max_test_f1_mfn:
+                        gc.best.max_test_f1_mfn = test_f1_mfn
+                    if test_f1_raven > gc.best.max_test_f1_raven:
+                        gc.best.max_test_f1_raven = test_f1_raven
+                    if test_f1_muit > gc.best.max_test_f1_muit:
+                        gc.best.max_test_f1_muit = test_f1_muit
             if best_model:
                 torch.save({
                     'epoch': epoch,
@@ -180,6 +188,7 @@ def train_model(config_file_name, model_name):
             words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                 device), inputLen.to(device), labels.to(device)
             optimizer.zero_grad()
+            adv_optimizer.zero_grad()
 
             outputs = net(words, covarep, facet, inputLen)
 
@@ -190,7 +199,7 @@ def train_model(config_file_name, model_name):
             net_copy = type(net)()
             net_copy.load_state_dict(net.state_dict())
 
-            loss = cross_entropy(w_output, labels) * lambda_q
+            loss = criterion(w_output, labels) * lambda_q
             loss.backward()
 
             # copying models
@@ -212,7 +221,7 @@ def train_model(config_file_name, model_name):
             if gc.dataset == 'iemocap':
                 outputs = outputs.view(-1, 2)
                 labels = labels.view(-1)
-            loss = cross_entropy(outputs, labels)
+            loss = criterion(outputs, labels)
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=gc.config['max_grad'], norm_type=inf)
             if gc.save_grad and epoch in save_epochs:
@@ -230,6 +239,7 @@ def train_model(config_file_name, model_name):
                         import pdb
                         pdb.set_trace()
             optimizer.step()
+            adv_optimizer.step()
             if gc.save_grad and epoch in save_epochs:
                 for name, param in net.named_parameters():
                     if param.grad is None:
@@ -248,17 +258,7 @@ def train_model(config_file_name, model_name):
                       (epoch + 1, i + 1, running_loss / 50))
                 running_loss = 0.0
 
-        if gc.dataset == 'mosei_emo':
-            eval_mosei_emo('train', output_all, label_all)
-        else:
-            train_mae = tot_err / tot_num
-            train_acc = float(tot_right) / tot_num
-            print("\ttrain mean error: %f" % train_mae)
-            print("\ttrain acc: %f" % train_acc)
-            if train_mae < gc.best.min_train_mae:
-                gc.best.min_train_mae = train_mae
-            if train_acc > gc.best.max_train_acc:
-                gc.best.max_train_acc = train_acc
+        eval_method('train', output_all, label_all)
 
         if gc.save_grad and epoch in save_epochs:
             grad_f = h5py.File(os.path.join(gc.model_path, '%s_grad_%s_%d.hdf5' % (gc.dataset, config_name, epoch)))
@@ -283,6 +283,49 @@ def eval_mosei_emo(split, output_all, label_all):
     return cls_mae
 
 
+def multiclass_acc(preds, truths):
+    """
+    Compute the multiclass accuracy w.r.t. groundtruth
+
+    :param preds: Float array representing the predictions, dimension (N,)
+    :param truths: Float/int array representing the groundtruth classes, dimension (N,)
+    :return: Classification accuracy
+    """
+    return np.sum(np.round(preds) == np.round(truths)) / float(len(truths))
+
+
+def eval_senti(split, output_all, label_all):
+    truth = np.array(label_all)
+    preds = np.array(output_all)
+    mae = np.mean(np.abs(truth - preds))
+    acc = accuracy_score(truth >= 0, preds >= 0)
+    corr = np.corrcoef(preds, truth)[0][1]
+    non_zeros = np.array([i for i, e in enumerate(truth) if e != 0])
+
+    preds_a7 = np.clip(preds, a_min=-3., a_max=3.)
+    truth_a7 = np.clip(truth, a_min=-3., a_max=3.)
+    preds_a5 = np.clip(preds, a_min=-2., a_max=2.)
+    truth_a5 = np.clip(truth, a_min=-2., a_max=2.)
+    acc_7 = multiclass_acc(preds_a7, truth_a7)
+    acc_5 = multiclass_acc(preds_a5, truth_a5)
+    f1_mfn = f1_score(np.round(truth), np.round(preds), average="weighted")
+    f1_raven = f1_score(truth >= 0, preds >= 0, average="weighted")
+    f1_muit = f1_score((preds[non_zeros] > 0), (truth[non_zeros] > 0), average='weighted')
+    binary_truth = (truth[non_zeros] > 0)
+    binary_preds = (preds[non_zeros] > 0)
+    ex_zero_acc = accuracy_score(binary_truth, binary_preds)
+    print("\t%s mean error: %f" % (split, mae))
+    print("\t%s correlation coefficient: %f" % (split, corr))
+    print("\t%s accuracy: %f" % (split, acc))
+    print("\t%s mult_acc_7: %f" % (split, acc_7))
+    print("\t%s mult_acc_5: %f" % (split, acc_5))
+    print("\t%s F1 MFN: %f " % (split, f1_mfn))
+    print("\t%s F1 RAVEN: %f " % (split, f1_raven))
+    print("\t%s F1 MuIT: %f " % (split, f1_muit))
+    print("\t%s exclude zero accuracy: %f" % (split, ex_zero_acc))
+    return mae, corr, acc, acc_7, acc_5, f1_mfn, f1_raven, f1_muit, ex_zero_acc
+
+
 def logSummary():
     print("best epoch: %d" % gc.best.best_epoch)
 
@@ -294,41 +337,22 @@ def logSummary():
         print("best epoch: %d" % gc.best.best_epoch)
         print("lowest training MAE: %f" % gc.best.min_train_mae)
         print("lowest testing MAE: %f" % gc.best.min_test_mae)
-        print("lowest validation MAE: %f" % gc.best.min_valid_mae)
-        print("test MAE when validation MAE is the lowest: %f" % gc.best.test_mae_at_valid_min)
 
         print("highest testing F1 MFN: %f" % gc.best.max_test_f1_mfn)
         print("highest testing F1 RAVEN: %f" % gc.best.max_test_f1_raven)
         print("highest testing F1 MuIT: %f" % gc.best.max_test_f1_muit)
 
-        print("highest validation F1 MFN: %f" % gc.best.max_valid_f1_mfn)
-        print("highest validation F1 RAVEN: %f" % gc.best.max_valid_f1_raven)
-        print("highest validation F1 MuIT: %f" % gc.best.max_valid_f1_muit)
-
-        print("test F1 MFN when validation F1 is the highest: %f" % gc.best.test_f1_mfn_at_valid_max)
-        print("test F1 RAVEN when validation F1 is the highest: %f" % gc.best.test_f1_raven_at_valid_max)
-        print("test F1 MuIT when validation F1 is the highest: %f" % gc.best.test_f1_muit_at_valid_max)
-
         print("highest testing correlation: %f" % gc.best.max_test_cor)
-        print("highest validation correlation: %f" % gc.best.max_valid_cor)
         print("test correlation when validation correlation is the highest: %f" % gc.best.test_cor_at_valid_max)
 
         print("highest testing accuracy: %f" % gc.best.max_test_acc)
-        print("highest validation accuracy: %f" % gc.best.max_valid_acc)
-        print("test accuracy when validation accuracy is the highest: %f" % gc.best.test_acc_at_valid_max)
 
         print("highest testing exclude zero accuracy: %f" % gc.best.max_test_ex_zero_acc)
-        print("highest validation exclude zero accuracy: %f" % gc.best.max_valid_ex_zero_acc)
-        print("test ex-zero accuracy when validation ex-zero accuracy is the highest: %f" %
-              gc.best.test_ex_zero_acc_at_valid_max)
 
         print("highest testing accuracy 5: %f" % gc.best.max_test_acc_5)
-        print("highest validation accuracy 5: %f" % gc.best.max_valid_acc_5)
-        print("test accuracy 5 when validation accuracy 5 is the highest: %f" % gc.best.test_acc_5_at_valid_max)
 
         print("highest testing accuracy 7: %f" % gc.best.max_test_acc_7)
-        print("highest validation accuracy 7: %f" % gc.best.max_valid_acc_7)
-        print("test accuracy 7 when validation accuracy 7 is the highest: %f" % gc.best.test_acc_7_at_valid_max)
+
 
 
 if __name__ == "__main__":

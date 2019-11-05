@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from consts import global_consts as gc
