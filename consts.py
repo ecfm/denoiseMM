@@ -2,7 +2,7 @@ from metrics import Best
 
 
 class global_consts():
-    single_gpu = True
+    single_gpu = False
     load_model = False
     SDK_PATH = "../../../CMU-MultimodalSDK"
 

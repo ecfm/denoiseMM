@@ -109,8 +109,9 @@ def eval_senti(split, output_all, label_all):
 
 if __name__ == "__main__":
     ds = MultimodalDataset
-
-    test_dataset = ds(sys.argv[1], cls="test")
+    conf = sys.argv[1]
+    gc.config = json.load(open("configs/%s.json" % conf), object_pairs_hook=OrderedDict)
+    test_dataset = ds(gc.data_path, cls="test")
     test_loader = Data.DataLoader(
         dataset=test_dataset,
         batch_size=100,
@@ -128,8 +129,11 @@ if __name__ == "__main__":
             torch.cuda.set_device(gc.config['cuda'])
     gc.device = device
     print("running device: ", device)
-    gc().logParameters()
+
     net = Net()
+    checkpoint = torch.load("model/mosei_senti_%s.tar" % conf, map_location=device)
+    net.load_state_dict(checkpoint['model_state_dict'])
+    net.to(device)
 
     with torch.no_grad():
         test_label_all = []
@@ -140,7 +144,7 @@ if __name__ == "__main__":
                 continue
             words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                 device), inputLen.to(device), labels.to(device)
-            outputs, _ = net(words, covarep, facet)
+            outputs = net(words, covarep, facet, inputLen)
 
             test_output_all.extend(outputs.squeeze().tolist())
             test_label_all.extend(labels.tolist())
@@ -177,4 +181,4 @@ if __name__ == "__main__":
                 if test_f1_muit > gc.best.max_test_f1_muit:
                     gc.best.max_test_f1_muit = test_f1_muit
 
-    logSummary()
+    # logSummary()
