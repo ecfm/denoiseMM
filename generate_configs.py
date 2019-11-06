@@ -13,7 +13,7 @@ if __name__ == "__main__":
     ap.add_argument("--gpus", required=False, type=int, default=2)
     args = vars(ap.parse_args())
     val_options = {
-        "lr": [0.001],
+        "lr": [0.0001, 0.001],
         "seed": [0],
         "epoch_num": [200],
         "dropout": [0, 0.1],

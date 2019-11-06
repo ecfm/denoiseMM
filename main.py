@@ -422,8 +422,8 @@ if __name__ == "__main__":
                         help='name of the trial (default: "mult")')
     args = parser.parse_args()
     torch.manual_seed(gc.config['seed'])
-    config_file_name = sys.argv[1]
-    gc.config = json.load(open(args.conf), object_pairs_hook=OrderedDict)
+    config_file_name = args.conf
+    gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
     model_name = args.model_name
     train_model(args, config_file_name, model_name)
     elapsed_time = time.time() - start_time
