@@ -143,4 +143,4 @@ class MULTModel(nn.Module):
         last_hs_proj += last_hs
         
         output = self.out_layer(last_hs_proj)
-        return output, last_hs
+        return output.squeeze(), last_hs

@@ -138,7 +138,7 @@ def train_model(args, config_file_name, model_name):
                     device), inputLen.to(device), labels.to(device)
                 outputs, _ = net(words, covarep, facet)
 
-                test_output_all.extend(outputs.squeeze().tolist())
+                test_output_all.extend(outputs.tolist())
                 test_label_all.extend(labels.tolist())
 
             best_model = False
@@ -203,7 +203,7 @@ def train_model(args, config_file_name, model_name):
 
             outputs, _ = net(words, covarep, facet)
 
-            output_all.extend(outputs.squeeze().tolist())
+            output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
             if gc.dataset != "iemocap" or gc.dataset != "pom" or gc.dataset != "mosei_emo":
                 err = torch.sum(torch.abs(outputs - labels))
