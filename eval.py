@@ -108,7 +108,7 @@ if __name__ == "__main__":
                     continue
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                outputs = net(words, covarep, facet, inputLen)
+                outputs, _ = net(words, covarep, facet)
 
                 test_output_all.extend(outputs.squeeze().tolist())
                 test_label_all.extend(labels.tolist())
