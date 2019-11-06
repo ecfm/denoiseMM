@@ -1,31 +1,32 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from consts import global_consts as gc
 
 from modules.transformer import TransformerEncoder
 
 
 class MULTModel(nn.Module):
-    def __init__(self, hyp_params):
+    def __init__(self, output_dim):
         """
         Construct a MulT model.
         """
         super(MULTModel, self).__init__()
-        self.orig_d_l, self.orig_d_a, self.orig_d_v = hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v
+        self.orig_d_l, self.orig_d_a, self.orig_d_v = gc.dim_l, gc.dim_a, gc.dim_v
         self.d_l, self.d_a, self.d_v = 30, 30, 30
-        self.vonly = hyp_params.vonly
-        self.aonly = hyp_params.aonly
-        self.lonly = hyp_params.lonly
-        self.num_heads = hyp_params.num_heads
-        self.layers = hyp_params.layers
-        self.attn_dropout = hyp_params.attn_dropout
-        self.attn_dropout_a = hyp_params.attn_dropout_a
-        self.attn_dropout_v = hyp_params.attn_dropout_v
-        self.relu_dropout = hyp_params.relu_dropout
-        self.res_dropout = hyp_params.res_dropout
-        self.out_dropout = hyp_params.out_dropout
-        self.embed_dropout = hyp_params.embed_dropout
-        self.attn_mask = hyp_params.attn_mask
+        self.vonly = True
+        self.aonly = True
+        self.lonly = True
+        self.num_heads = gc.config['n_head']
+        self.layers = gc.config['n_layers']
+        self.attn_dropout = 0.1
+        self.attn_dropout_a = 0.0
+        self.attn_dropout_v = 0.0
+        self.relu_dropout = 0.1
+        self.res_dropout = 0.1
+        self.out_dropout = 0.0
+        self.embed_dropout = 0.25
+        self.attn_mask = True
 
         combined_dim = self.d_l + self.d_a + self.d_v
 
@@ -34,8 +35,6 @@ class MULTModel(nn.Module):
             combined_dim = 2 * self.d_l   # assuming d_l == d_a == d_v
         else:
             combined_dim = 2 * (self.d_l + self.d_a + self.d_v)
-        
-        output_dim = hyp_params.output_dim        # This is actually not a hyperparameter :-)
 
         # 1. Temporal convolutional layers
         self.proj_l = nn.Conv1d(self.orig_d_l, self.d_l, kernel_size=1, padding=0, bias=False)

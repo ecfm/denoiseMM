@@ -86,11 +86,8 @@ def train_model(args, config_file_name, model_name):
     hyp_params = args
     hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v = gc.dim_l, gc.dim_a, gc.dim_v
     # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
-    hyp_params.layers = gc.config['n_layers']
-    hyp_params.num_heads = gc.config['n_head']
-    hyp_params.output_dim = output_dim_dict.get(gc.dataset, 1)
 
-    net = MULTModel(hyp_params)
+    net = MULTModel(output_dim_dict.get(gc.dataset, 1))
     print(net)
     net.to(device)
 
