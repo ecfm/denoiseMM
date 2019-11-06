@@ -20,7 +20,7 @@ class global_consts():
 
     HPID = -1
 
-    batch_size = 20
+    batch_size = 256
 
     padding_len = -1
 

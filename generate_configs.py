@@ -17,7 +17,7 @@ if __name__ == "__main__":
         "seed": [0],
         "epoch_num": [200],
         "dropout": [0, 0.1],
-        "n_head": [3, 4, 5], #, 8],
+        "n_head": [3, 5, 6], #, 8],
         "n_layers": [6, 7, 8]
     }
     option_lens = [len(options) for options in val_options.values()]
