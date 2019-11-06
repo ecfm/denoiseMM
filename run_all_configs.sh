@@ -28,7 +28,7 @@ run_with_cuda() {
         git log -1 > ${LOG_FILE}
         git diff -- '*.py' >> ${LOG_FILE}
         echo "running with $filename"
-        python -u main.py "$filename" >> ${LOG_FILE}  #&
+        python -u main.py --conf "$filename" >> ${LOG_FILE}  #&
     #    sleep 30
     done
 }

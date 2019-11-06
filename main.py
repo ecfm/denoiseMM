@@ -22,8 +22,7 @@ lambda_q = 0.15
 output_dim_dict = {
     'mosi': 1,
     'mosei_senti': 1,
-    'iemocap': 8,
-    'pom': len(gc.best.pom_cls)
+    'iemocap': 8
 }
 
 def stopTraining(signum, frame):
@@ -101,7 +100,6 @@ def train_model(args, config_file_name, model_name):
         criterion = nn.MSELoss()
 
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
-    adv_optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
     if gc.load_model and os.path.exists(model_path):
@@ -138,9 +136,9 @@ def train_model(args, config_file_name, model_name):
                     continue
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                outputs = net(words, covarep, facet, inputLen)
+                outputs, _ = net(words, covarep, facet)
 
-                test_output_all.extend(outputs.tolist())
+                test_output_all.extend(outputs.squeeze().tolist())
                 test_label_all.extend(labels.tolist())
 
             best_model = False
@@ -202,11 +200,10 @@ def train_model(args, config_file_name, model_name):
             words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                 device), inputLen.to(device), labels.to(device)
             optimizer.zero_grad()
-            adv_optimizer.zero_grad()
 
-            outputs = net(words, covarep, facet, inputLen)
+            outputs, _ = net(words, covarep, facet)
 
-            output_all.extend(outputs.tolist())
+            output_all.extend(outputs.squeeze().tolist())
             label_all.extend(labels.tolist())
             if gc.dataset != "iemocap" or gc.dataset != "pom" or gc.dataset != "mosei_emo":
                 err = torch.sum(torch.abs(outputs - labels))
@@ -235,7 +232,6 @@ def train_model(args, config_file_name, model_name):
                         import pdb
                         pdb.set_trace()
             optimizer.step()
-            adv_optimizer.step()
             if gc.save_grad and epoch in save_epochs:
                 for name, param in net.named_parameters():
                     if param.grad is None:
@@ -354,28 +350,23 @@ def logSummary():
 if __name__ == "__main__":
     start_time = time.time()
     print('Start time: ' + time.strftime("%H:%M:%S", time.gmtime(start_time)))
-    config_file_name = ''
-    if len(sys.argv) > 1:
-        config_file_name = sys.argv[1]
-        gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
-    if len(sys.argv) > 2:
-        model_name = sys.argv[2]
-    else:
-        model_name = None
 
     parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
     parser.add_argument('-f', default='', type=str)
+    parser.add_argument('--conf', type=str)
+    parser.add_argument('--model-name', default=None, type=str)
+
 
     # Fixed
     parser.add_argument('--model', type=str, default='MulT',
                         help='name of the model to use (Transformer, etc.)')
 
     # Tasks
-    parser.add_argument('--vonly', action='store_true',
+    parser.add_argument('--vonly', action='store_false',
                         help='use the crossmodal fusion into v (default: False)')
-    parser.add_argument('--aonly', action='store_true',
+    parser.add_argument('--aonly', action='store_false',
                         help='use the crossmodal fusion into a (default: False)')
-    parser.add_argument('--lonly', action='store_true',
+    parser.add_argument('--lonly', action='store_false',
                         help='use the crossmodal fusion into l (default: False)')
     parser.add_argument('--aligned', action='store_true', default=True,
                         help='consider aligned experiment or not (default: True)')
@@ -431,6 +422,9 @@ if __name__ == "__main__":
                         help='name of the trial (default: "mult")')
     args = parser.parse_args()
     torch.manual_seed(gc.config['seed'])
+    config_file_name = sys.argv[1]
+    gc.config = json.load(open(args.conf), object_pairs_hook=OrderedDict)
+    model_name = args.model_name
     train_model(args, config_file_name, model_name)
     elapsed_time = time.time() - start_time
     print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
