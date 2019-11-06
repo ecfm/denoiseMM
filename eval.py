@@ -72,10 +72,9 @@ def eval_senti(split, output_all, label_all):
 
 if __name__ == "__main__":
     for mask_ratio in [0.2, 0.4, 0.6]:
-        ds = MaskedDataset
         conf = sys.argv[1]
         gc.config = json.load(open("configs/%s.json" % conf), object_pairs_hook=OrderedDict)
-        test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
+        test_dataset = MaskedDataset(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
         test_loader = Data.DataLoader(
             dataset=test_dataset,
             batch_size=100,

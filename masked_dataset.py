@@ -23,10 +23,7 @@ class MaskedDataset(Data.Dataset):
     def __init__(self, root, dataset_name, cls="test"):
         self.root = root
         self.cls = cls
-        if len(MaskedDataset.testset.y) != 0:
-            print("Data has been previously loaded, fetching from previous lists.")
-        else:
-            self.load_data(dataset_name)
+        self.load_data(dataset_name)
 
         self.dataset = MaskedDataset.testset
 
@@ -60,6 +57,3 @@ class MaskedDataset(Data.Dataset):
     def __len__(self):
         return len(self.y)
 
-
-if __name__ == "__main__":
-    dataset = MaskedDataset(gc.data_path)
