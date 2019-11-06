@@ -4,7 +4,7 @@ from metrics import Best
 class global_consts():
     single_gpu = True
     load_model = False
-    SDK_PATH = "../../../CMU-MultimodalSDK"
+    SDK_PATH = "/work/chengfem/CMU-MultimodalSDK"
 
     save_grad = False
 
@@ -13,7 +13,7 @@ class global_consts():
     if dataset == "mosi_short":
         data_path = "../../MOSI/"
     else:
-        data_path = "../../data/"
+        data_path = "/work/chengfem/data/"
     model_path = "model/"
 
     log_path = None

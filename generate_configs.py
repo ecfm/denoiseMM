@@ -23,7 +23,7 @@ if __name__ == "__main__":
     option_lens = [len(options) for options in val_options.values()]
     num_comb = functools.reduce(operator.mul, option_lens, 1)
     start = int(args["start"])
-    end = int(args["end"])
+    end = min(int(args["end"]), num_comb)
     gpus = int(args["gpus"])
     for i, id in enumerate(random.sample(range(num_comb), end)[start:end]):
         cuda = i % gpus
