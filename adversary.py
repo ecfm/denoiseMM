@@ -16,9 +16,9 @@ class Adv(nn.Module):
 
     def forward(self, x):
         _, gru_last_h = self.gru(x.transpose(0, 1))
-        x = F.relu(self.fc1(gru_last_h.squeeze())).squeeze()
+        x = F.relu(self.fc1(gru_last_h))
         x = F.relu(self.fc2(x))
-        return x
+        return x.squeeze()
 
     def backward(self, grad_output):
         return -grad_output

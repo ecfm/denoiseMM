@@ -198,24 +198,28 @@ def train_model(config_file_name, model_name):
 
             w_output = adv(words)
 
-            adv_copy = type(adv)()
-            adv_copy.load_state_dict(adv.state_dict())
-            adv_copy.to(device)
+            # adv_copy = type(adv)()
+            # adv_copy.load_state_dict(adv.state_dict())
+            # adv_copy.to(device)
             net_copy = type(net)()
             net_copy.load_state_dict(net.state_dict())
             net_copy.to(device)
 
-            loss = criterion(w_output, labels) * lambda_q
-            loss.backward()
+            w_loss = criterion(w_output, labels)
+            w_loss_item = torch.mean(w_loss).item()
+            w_loss *= lambda_q
+            w_loss.backward()
 
-            # copying models
-            c_output = adv_copy(words)
-            f_output = net_copy(words, covarep, facet, inputLen)
-            entropy_c_output = torch.mean(c_output * torch.log(c_output))
-            entropy_f_output = torch.mean(f_output * torch.log(f_output))
-
-            c_f_loss = (entropy_f_output - entropy_c_output)
-            c_f_loss.backward()
+            # # copying models
+            # c_output = adv_copy(words)
+            # f_output = net_copy(words, covarep, facet, inputLen)
+            # entropy_c_output = torch.mean(c_output * torch.log(c_output))
+            # entropy_f_output = torch.mean(f_output * torch.log(f_output))
+            #
+            # c_f_loss = (entropy_f_output - entropy_c_output)
+            # c_f_loss_item = torch.mean(c_f_loss).item()
+            # c_f_loss *= lambda_h
+            # c_f_loss.backward()
 
             output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
@@ -228,6 +232,7 @@ def train_model(config_file_name, model_name):
                 outputs = outputs.view(-1, 2)
                 labels = labels.view(-1)
             loss = criterion(outputs, labels)
+            # print("loss=%.4f, w_loss_item=%.4f, c_f_loss_item=%.4f" % (loss.item(), w_loss_item, c_f_loss_item))
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=gc.config['max_grad'], norm_type=inf)
             if gc.save_grad and epoch in save_epochs:
