@@ -5,6 +5,7 @@ import sys
 import time
 from collections import OrderedDict
 
+import argparse
 import h5py
 import numpy as np
 import torch
@@ -14,11 +15,16 @@ import torch.utils.data as Data
 from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
-from model import Net
-from adversary import Adv
+from models import MULTModel
 
 lambda_q = 0.15
 
+output_dim_dict = {
+    'mosi': 1,
+    'mosei_senti': 1,
+    'iemocap': 8,
+    'pom': len(gc.best.pom_cls)
+}
 
 def stopTraining(signum, frame):
     global savedStdout
@@ -27,7 +33,7 @@ def stopTraining(signum, frame):
     sys.exit()
 
 
-def train_model(config_file_name, model_name):
+def train_model(args, config_file_name, model_name):
     save_epochs = [1, 10, 50, 100, 150, 200, 500, 700, 999]
     config_name = ''
     if config_file_name:
@@ -78,12 +84,16 @@ def train_model(config_file_name, model_name):
     gc.device = device
     print("running device: ", device)
     gc().logParameters()
+    hyp_params = args
+    hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v = gc.dim_l, gc.dim_a, gc.dim_v
+    # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
+    hyp_params.layers = gc.config['n_layers']
+    hyp_params.num_heads = gc.config['n_head']
+    hyp_params.output_dim = output_dim_dict.get(gc.dataset, 1)
 
-    net = Net()
+    net = MULTModel(hyp_params)
     print(net)
     net.to(device)
-    adv = Adv()
-    adv.to(device)
 
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
@@ -195,31 +205,6 @@ def train_model(config_file_name, model_name):
             adv_optimizer.zero_grad()
 
             outputs = net(words, covarep, facet, inputLen)
-
-            w_output = adv(words)
-
-            # adv_copy = type(adv)()
-            # adv_copy.load_state_dict(adv.state_dict())
-            # adv_copy.to(device)
-            net_copy = type(net)()
-            net_copy.load_state_dict(net.state_dict())
-            net_copy.to(device)
-
-            w_loss = criterion(w_output, labels)
-            w_loss_item = torch.mean(w_loss).item()
-            w_loss *= lambda_q
-            w_loss.backward()
-
-            # # copying models
-            # c_output = adv_copy(words)
-            # f_output = net_copy(words, covarep, facet, inputLen)
-            # entropy_c_output = torch.mean(c_output * torch.log(c_output))
-            # entropy_f_output = torch.mean(f_output * torch.log(f_output))
-            #
-            # c_f_loss = (entropy_f_output - entropy_c_output)
-            # c_f_loss_item = torch.mean(c_f_loss).item()
-            # c_f_loss *= lambda_h
-            # c_f_loss.backward()
 
             output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
@@ -377,7 +362,75 @@ if __name__ == "__main__":
         model_name = sys.argv[2]
     else:
         model_name = None
+
+    parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
+    parser.add_argument('-f', default='', type=str)
+
+    # Fixed
+    parser.add_argument('--model', type=str, default='MulT',
+                        help='name of the model to use (Transformer, etc.)')
+
+    # Tasks
+    parser.add_argument('--vonly', action='store_true',
+                        help='use the crossmodal fusion into v (default: False)')
+    parser.add_argument('--aonly', action='store_true',
+                        help='use the crossmodal fusion into a (default: False)')
+    parser.add_argument('--lonly', action='store_true',
+                        help='use the crossmodal fusion into l (default: False)')
+    parser.add_argument('--aligned', action='store_true', default=True,
+                        help='consider aligned experiment or not (default: True)')
+
+    # Dropouts
+    parser.add_argument('--attn_dropout', type=float, default=0.1,
+                        help='attention dropout')
+    parser.add_argument('--attn_dropout_a', type=float, default=0.0,
+                        help='attention dropout (for audio)')
+    parser.add_argument('--attn_dropout_v', type=float, default=0.0,
+                        help='attention dropout (for visual)')
+    parser.add_argument('--relu_dropout', type=float, default=0.1,
+                        help='relu dropout')
+    parser.add_argument('--embed_dropout', type=float, default=0.25,
+                        help='embedding dropout')
+    parser.add_argument('--res_dropout', type=float, default=0.1,
+                        help='residual block dropout')
+    parser.add_argument('--out_dropout', type=float, default=0.0,
+                        help='output layer dropout')
+
+    # Architecture
+    parser.add_argument('--nlevels', type=int, default=5,
+                        help='number of layers in the network (default: 5)')
+    parser.add_argument('--num_heads', type=int, default=5,
+                        help='number of heads for the transformer network (default: 5)')
+    parser.add_argument('--attn_mask', action='store_false',
+                        help='use attention mask for Transformer (default: true)')
+
+    # Tuning
+    parser.add_argument('--batch_size', type=int, default=24, metavar='N',
+                        help='batch size (default: 24)')
+    parser.add_argument('--clip', type=float, default=0.8,
+                        help='gradient clip value (default: 0.8)')
+    parser.add_argument('--lr', type=float, default=1e-3,
+                        help='initial learning rate (default: 1e-3)')
+    parser.add_argument('--optim', type=str, default='Adam',
+                        help='optimizer to use (default: Adam)')
+    parser.add_argument('--num_epochs', type=int, default=200,
+                        help='number of epochs (default: 40)')
+    parser.add_argument('--when', type=int, default=20,
+                        help='when to decay learning rate (default: 20)')
+    parser.add_argument('--batch_chunk', type=int, default=1,
+                        help='number of chunks per batch (default: 1)')
+
+    # Logistics
+    parser.add_argument('--log_interval', type=int, default=30,
+                        help='frequency of result logging (default: 30)')
+    parser.add_argument('--seed', type=int, default=1111,
+                        help='random seed')
+    parser.add_argument('--no_cuda', action='store_true',
+                        help='do not use cuda')
+    parser.add_argument('--name', type=str, default='mult',
+                        help='name of the trial (default: "mult")')
+    args = parser.parse_args()
     torch.manual_seed(gc.config['seed'])
-    train_model(config_file_name, model_name)
+    train_model(args, config_file_name, model_name)
     elapsed_time = time.time() - start_time
     print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))

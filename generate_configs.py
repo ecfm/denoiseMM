@@ -18,10 +18,7 @@ if __name__ == "__main__":
         "epoch_num": [200],
         "dropout": [0, 0.1],
         "n_head": [2, 4, 6], #, 8],
-        "ff_dim_final": [128, 256, 320, 512],
-        "n_layers": [6, 7, 8],
-        "dim_total_proj": [400, 512, 800],
-        "adv_h_dim" : [64, 128, 256]
+        "n_layers": [6, 7, 8]
     }
     option_lens = [len(options) for options in val_options.values()]
     num_comb = functools.reduce(operator.mul, option_lens, 1)
