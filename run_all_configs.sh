@@ -33,6 +33,6 @@ run_with_cuda() {
     done
 }
 
-for ((i= $((START_GPU)); i<$(( GPUS ));i++)); do
+for ((i= $((START_GPU)); i<=$(( GPUS ));i++)); do
     run_with_cuda ${i} 2>&1 > ../run_all_${i}.log &
 done
