@@ -20,8 +20,8 @@ class TransformerEncoder(nn.Module):
         attn_mask (bool): whether to apply mask on the attention weights
     """
 
-    def __init__(self, embed_dim, num_heads, layers, attn_dropout=0.0, relu_dropout=0.0, res_dropout=0.0,
-                 embed_dropout=0.0, attn_mask=False):
+    def __init__(self, embed_dim, num_heads, layers, attn_dropout=0.0, relu_dropout=0.1, res_dropout=0.1,
+                 embed_dropout=0.25, attn_mask=False):
         super().__init__()
         self.dropout = embed_dropout      # Embedding dropout
         self.attn_dropout = attn_dropout
