@@ -30,7 +30,10 @@ if __name__ == "__main__":
     start = int(args["start"])
     end = min(int(args["end"]), num_comb)
     gpus = int(args["gpus"])
-    for i, id in enumerate(random.sample(range(num_comb), end)[start:end]):
+    count = 0
+    for i, id in enumerate(random.sample(range(num_comb), end)[start:]):
+        if count > end:
+            break
         cuda = i % gpus
         file_name = 'configs/' + 'conf_cuda%d_%d.json' % (cuda, i + start)
         new_config = {'cuda': cuda}
@@ -38,5 +41,9 @@ if __name__ == "__main__":
             choice = id % len(options)
             new_config[key] = options[choice]
             id //= len(options)
+        if new_config['d_l'] % new_config['n_head_l'] != 0 \
+                or (new_config['d_a'] + new_config['d_v']) % new_config['n_head_av'] != 0:
+            continue
         with open(file_name, 'w') as outfile:
+            count += 1
             json.dump(new_config, outfile)
