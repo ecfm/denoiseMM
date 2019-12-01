@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import signal
@@ -5,11 +6,10 @@ import sys
 import time
 from collections import OrderedDict
 
-import argparse
-import h5py
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as Data
 from sklearn.metrics import accuracy_score, f1_score
@@ -17,7 +17,6 @@ from sklearn.metrics import accuracy_score, f1_score
 from consts import global_consts as gc
 from decision_net import DecisionNet
 from masked_dataset import MaskedDataset
-from models import MULTModel
 from modules.transformer import TransformerEncoder
 
 lambda_q = 0.15
@@ -34,18 +33,17 @@ def stopTraining(signum, frame):
     sys.stdout = savedStdout
     sys.exit()
 
-def get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav):
+def get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
+                     proj_l, proj_a, proj_v):
     with torch.no_grad():
         print("Epoch #%d results:" % epoch)
         test_label_all = []
         test_output_all = []
         for data in test_loader:
-            words, covarep, facet, inputLen, labels = data
-            if covarep.size()[0] == 1:
+            converted_data = convert_data(data, device, False, proj_l, proj_a, proj_v)
+            if converted_data is None:
                 continue
-            words, covarep, facet, inputLen, \
-            labels = words.to(device).permute(1, 0, 2), covarep.to(device).permute(1, 0, 2), \
-                     facet.to(device).permute(1, 0, 2), inputLen.to(device), labels.to(device)
+            words, covarep, facet, inputLen, labels = converted_data
 
             av2l_intermediate = enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
             av2l_latent = proj_av2l(av2l_intermediate)
@@ -147,6 +145,9 @@ def train_model(args, config_file_name, model_name):
     hyp_params = args
     hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v = gc.dim_l, gc.dim_a, gc.dim_v
     # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
+    proj_l = nn.Conv1d(gc.dim_l, gc.config['d_l'], kernel_size=1, padding=0, bias=False)
+    proj_a = nn.Conv1d(gc.dim_a, gc.config['d_a'], kernel_size=1, padding=0, bias=False)
+    proj_v = nn.Conv1d(gc.dim_v, gc.config['d_v'], kernel_size=1, padding=0, bias=False)
 
     enc_l = TransformerEncoder(embed_dim=gc.dim_l,
                                num_heads=gc.config['n_head_l'],
@@ -194,7 +195,7 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model = get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav)
+        best_model = get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav, proj_l, proj_a, proj_v)
         if best_model:
             torch.save({
                 'epoch': epoch,
@@ -212,16 +213,11 @@ def train_model(args, config_file_name, model_name):
         label_all = []
         output_all = []
         for i, data in enumerate(train_loader):
-            words, covarep, facet, inputLen, labels = data
-            if covarep.size()[0] == 1:
-                continue
-            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                device), inputLen.to(device), labels.to(device)
             optimizer.zero_grad()
-
-            words, covarep, facet, inputLen, \
-            labels = words.to(device).permute(1, 0, 2), covarep.to(device).permute(1, 0, 2), \
-                     facet.to(device).permute(1, 0, 2), inputLen.to(device), labels.to(device)
+            converted_data = convert_data(data, device, True, proj_l, proj_a, proj_v)
+            if converted_data is None:
+                continue
+            words, covarep, facet, inputLen, labels = converted_data
 
             dec_l_copy = type(dec_l)()
             dec_l_copy.load_state_dict(dec_l.state_dict())
@@ -275,9 +271,26 @@ def train_model(args, config_file_name, model_name):
         enc_av_comp.load_state_dict(checkpoint['enc_av_comp'])
         dec_l.load_state_dict(checkpoint['dec_l'])
         dec_lav.load_state_dict(checkpoint['dec_lav'])
-        get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav)
+        get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
+                         proj_l, proj_a, proj_v)
 
 
+def convert_data(data, device, training, proj_l, proj_a, proj_v):
+    words, covarep, facet, inputLen, labels = data
+    if covarep.size()[0] == 1:
+        return None
+    words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
+        device), inputLen.to(device), labels.to(device)
+    words = F.dropout(words.transpose(1, 2), p=0.25, training=training)
+    covarep = covarep.transpose(1, 2)
+    facet = facet.transpose(1, 2)
+
+    # Project the textual/visual/audio features
+    words = proj_l(words).permute(2, 0, 1)
+    covarep = proj_a(covarep).permute(2, 0, 1)
+    facet = proj_v(facet).permute(2, 0, 1)
+
+    return words, covarep, facet, inputLen, labels
 
 def eval_mosei_emo(split, output_all, label_all):
     truths = np.array(label_all).reshape((-1, len(gc.best.mosei_cls)))
@@ -440,6 +453,9 @@ if __name__ == "__main__":
     config_file_name = args.conf
     gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
     model_name = args.model_name
-    train_model(args, config_file_name, model_name)
+    try:
+        train_model(args, config_file_name, model_name)
+    except Exception as e:
+        print("Skip config {} because of '{}'".format(config_file_name, e))
     elapsed_time = time.time() - start_time
     print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
