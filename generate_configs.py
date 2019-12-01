@@ -17,8 +17,10 @@ if __name__ == "__main__":
         "seed": [0],
         "epoch_num": [200],
         "dropout": [0, 0.1],
-        "n_head": [3, 5, 6], #, 8],
-        "n_layers": [6, 7, 8]
+        "n_head_l": [2, 3, 5, 6], #, 8],
+        "n_layers_l": [4, 5, 6, 7, 8],
+        "n_head_av": [2, 3, 5, 6],  # , 8],
+        "n_layers_av": [4, 5, 6, 7, 8]
     }
     option_lens = [len(options) for options in val_options.values()]
     num_comb = functools.reduce(operator.mul, option_lens, 1)
