@@ -264,6 +264,7 @@ def train_model(args, config_file_name, model_name):
         eval_method('train', output_all, label_all)
 
     maes = []
+    best_test_mae = gc.best.min_test_mae
     for mask_ratio in [0.2, 0.4, 0.6]:
         ds = MaskedDataset
         test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
@@ -286,6 +287,7 @@ def train_model(args, config_file_name, model_name):
         _, metrics = get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
                                       proj_l, proj_a, proj_v)
         maes.append(metrics[0])
+    print("mask_ratio=%f, mae=%f" % (0, best_test_mae))
     for i, mask_ratio in enumerate([0.2, 0.4, 0.6]):
         print("mask_ratio=%f, mae=%f" % (mask_ratio, maes[i]))
 
