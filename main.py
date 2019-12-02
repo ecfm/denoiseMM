@@ -31,13 +31,15 @@ def stopTraining():
     sys.stdout = savedStdout
     sys.exit()
 
-def get_test_metrics(epoch, test_loader, net):
+def get_test_metrics(epoch, device, test_loader, net):
     with torch.no_grad():
         print("Epoch #%d results:" % epoch)
         test_label_all = []
         test_output_all = []
         for data in test_loader:
             words, covarep, facet, inputLen, labels = data
+            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
+                                                      inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
 
@@ -157,7 +159,7 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model, _ = get_test_metrics(epoch, test_loader, net)
+        best_model, _ = get_test_metrics(epoch, device, test_loader, net)
         if best_model:
             torch.save({
                 'epoch': epoch,
@@ -172,6 +174,8 @@ def train_model(args, config_file_name, model_name):
         for i, data in enumerate(train_loader):
             optimizer.zero_grad()
             words, covarep, facet, inputLen, labels = data
+            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
+                                                      inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
             outputs_av, outputs_l, outputs = net(words, covarep, facet)
@@ -214,7 +218,7 @@ def train_model(args, config_file_name, model_name):
         )
         checkpoint = torch.load(model_path, map_location=device)
         net.load_state_dict(checkpoint['state'])
-        _, metrics = get_test_metrics(-1, test_loader, net)
+        _, metrics = get_test_metrics(-1, device, test_loader, net)
         maes.append(metrics[0])
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
     print("%s, %.f,%.f,%.f,%.f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
