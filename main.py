@@ -221,7 +221,7 @@ def train_model(args, config_file_name, model_name):
         _, metrics = get_test_metrics(-1, device, test_loader, net)
         maes.append(metrics[0])
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
-    print("%s, %.f,%.f,%.f,%.f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
+    print("%s, %f,%f,%f,%f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
 
 
 
@@ -390,5 +390,3 @@ if __name__ == "__main__":
     train_model(args, config_file_name, model_name)
     # except Exception as e:
     #     print("Skip config {} because of '{}'".format(config_file_name, e))
-    elapsed_time = time.time() - start_time
-    print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))

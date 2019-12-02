@@ -10,6 +10,7 @@ class global_consts():
 
     dataset = "mosei_senti"
     data_path = "/work/chengfem/data/"
+    # data_path = "/Users/cask/MultiComp/data/"
     model_path = "model/"
 
     log_path = None
