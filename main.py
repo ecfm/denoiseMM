@@ -89,7 +89,8 @@ def get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc
                     gc.best.max_test_f1_raven = test_f1_raven
                 if test_f1_muit > gc.best.max_test_f1_muit:
                     gc.best.max_test_f1_muit = test_f1_muit
-        return best_model
+        return best_model, (test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven,
+                            test_f1_muit, test_ex_zero_acc)
 
 
 def train_model(args, config_file_name, model_name):
@@ -198,7 +199,8 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model = get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav, proj_l, proj_a, proj_v)
+        best_model, _ = get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l,
+                                         enc_av_comp, dec_lav, proj_l, proj_a, proj_v)
         if best_model:
             torch.save({
                 'epoch': epoch,
@@ -261,6 +263,7 @@ def train_model(args, config_file_name, model_name):
 
         eval_method('train', output_all, label_all)
 
+    maes = []
     for mask_ratio in [0.2, 0.4, 0.6]:
         ds = MaskedDataset
         test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
@@ -280,8 +283,11 @@ def train_model(args, config_file_name, model_name):
         enc_av_comp.load_state_dict(checkpoint['enc_av_comp'])
         dec_l.load_state_dict(checkpoint['dec_l'])
         dec_lav.load_state_dict(checkpoint['dec_lav'])
-        get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
-                         proj_l, proj_a, proj_v)
+        _, metrics = get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
+                                      proj_l, proj_a, proj_v)
+        maes.append(metrics[0])
+    for i, mask_ratio in enumerate([0.2, 0.4, 0.6]):
+        print("mask_ratio=%f, mae=%f" % (mask_ratio, maes[i]))
 
 
 def convert_data(data, device, training, proj_l, proj_a, proj_v):
