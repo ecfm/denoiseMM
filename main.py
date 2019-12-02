@@ -134,6 +134,7 @@ def train_model(args, config_file_name, model_name):
     gc().logParameters()
     # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
     net = Net()
+    net.to(device)
     print(net)
 
     if gc.dataset == "iemocap":
