@@ -462,9 +462,9 @@ if __name__ == "__main__":
     config_file_name = args.conf
     gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
     model_name = args.model_name
-    try:
-        train_model(args, config_file_name, model_name)
-    except Exception as e:
-        print("Skip config {} because of '{}'".format(config_file_name, e))
+    # try:
+    train_model(args, config_file_name, model_name)
+    # except Exception as e:
+    #     print("Skip config {} because of '{}'".format(config_file_name, e))
     elapsed_time = time.time() - start_time
     print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
