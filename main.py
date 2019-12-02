@@ -149,23 +149,19 @@ def train_model(args, config_file_name, model_name):
     proj_a = nn.Conv1d(gc.dim_a, gc.config['d_a'], kernel_size=1, padding=0, bias=False)
     proj_v = nn.Conv1d(gc.dim_v, gc.config['d_v'], kernel_size=1, padding=0, bias=False)
 
-    enc_l = TransformerEncoder(embed_dim=gc.dim_l,
+    enc_l = TransformerEncoder(embed_dim=gc.config['d_l'],
                                num_heads=gc.config['n_head_l'],
                                layers=gc.config['n_layers_l'],
                                attn_dropout=0.1)
-    print("enc_l")
-    enc_av2l = TransformerEncoder(embed_dim=gc.dim_a + gc.dim_v,
+    enc_av2l = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
                                   num_heads=gc.config['n_head_av'],
                                   layers=gc.config['n_layers_av'],
                                   attn_dropout=0.0)
-    print("enc_av2l")
-
     proj_av2l = nn.Linear(gc.dim_a + gc.dim_v, gc.dim_l)
-    enc_av_comp = TransformerEncoder(embed_dim=gc.dim_a + gc.dim_v,
+    enc_av_comp = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
                                      num_heads=gc.config['n_head_av'],
                                      layers=gc.config['n_layers_av'],
                                      attn_dropout=0.0)
-    print("enc_av_comp")
     dec_l = DecisionNet(input_dim=gc.dim_l, output_dim=1)
     dec_lav = DecisionNet(input_dim=gc.dim_l+gc.dim_a+gc.dim_v, output_dim=1)
 
