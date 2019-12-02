@@ -225,7 +225,7 @@ def train_model(args, config_file_name, model_name):
                 continue
             words, covarep, facet, inputLen, labels = converted_data
 
-            dec_l_copy = type(dec_l)()
+            dec_l_copy = type(dec_l)(input_dim=gc.config['d_l'], output_dim=1)
             dec_l_copy.load_state_dict(dec_l.state_dict())
             dec_l_copy.to(device)
 
