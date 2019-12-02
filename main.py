@@ -51,7 +51,7 @@ def get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc
             l_latent = enc_l(words)[-1]
 
             av_latent_comp = enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=2))
+            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
 
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
@@ -241,7 +241,7 @@ def train_model(args, config_file_name, model_name):
             loss_l.backward()
 
             av_latent_comp = enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=2))
+            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
             loss_lav = criterion(outputs, labels)
             loss_lav.backward()
 
