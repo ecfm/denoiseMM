@@ -26,7 +26,7 @@ class Net(nn.Module):
                                       layers=gc.config['n_layers_av'],
                                       attn_dropout=0.0)
         self.proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
-        self.proj_l = nn.Linear(gc.config['d_l'] * 2, gc.config['d_l'])
+        self.proj_double_l = nn.Linear(gc.config['d_l'] * 2, gc.config['d_l'])
         self.enc_av_comp = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
                                          num_heads=gc.config['n_head_av'],
                                          layers=gc.config['n_layers_av'],
@@ -57,7 +57,7 @@ class Net(nn.Module):
         outputs_l = self.dec_l(l_latent)
 
         av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-        combined_l_latent = self.proj_l(torch.cat([l_latent, av2l_latent.detach()], dim=1))
+        combined_l_latent = self.proj_double_l(torch.cat([l_latent, av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs_av, outputs_l, outputs
 
