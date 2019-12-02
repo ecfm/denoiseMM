@@ -18,7 +18,8 @@ class MultiheadAttention(nn.Module):
         self.num_heads = num_heads
         self.attn_dropout = attn_dropout
         self.head_dim = embed_dim // num_heads
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, \
+            "embed_dim={} must be divisible by num_heads={}".format(self.embed_dim, self.num_heads)
         self.scaling = self.head_dim ** -0.5
 
         self.in_proj_weight = Parameter(torch.Tensor(3 * embed_dim, embed_dim))
