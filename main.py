@@ -165,6 +165,9 @@ def train_model(args, config_file_name, model_name):
     dec_l = DecisionNet(input_dim=gc.dim_l, output_dim=1)
     dec_lav = DecisionNet(input_dim=gc.dim_l+gc.dim_a+gc.dim_v, output_dim=1)
 
+    proj_l.to(device)
+    proj_a.to(device)
+    proj_v.to(device)
     enc_l.to(device)
     enc_av2l.to(device)
     proj_av2l.to(device)
@@ -199,6 +202,9 @@ def train_model(args, config_file_name, model_name):
         if best_model:
             torch.save({
                 'epoch': epoch,
+                'proj_l': proj_l.state_dict(),
+                'proj_a': proj_a.state_dict(),
+                'proj_v': proj_v.state_dict(),
                 'enc_l': enc_l.state_dict(),
                 'enc_av2l': enc_av2l.state_dict(),
                 'proj_av2l': proj_av2l.state_dict(),
@@ -265,6 +271,9 @@ def train_model(args, config_file_name, model_name):
             num_workers=1,
         )
         checkpoint = torch.load(model_path, map_location=device)
+        proj_l.load_state_dict(checkpoint['proj_l'])
+        proj_a.load_state_dict(checkpoint['proj_a'])
+        proj_v.load_state_dict(checkpoint['proj_v'])
         enc_l.load_state_dict(checkpoint['enc_l'])
         enc_av2l.load_state_dict(checkpoint['enc_av2l'])
         proj_av2l.load_state_dict(checkpoint['proj_av2l'])
