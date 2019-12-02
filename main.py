@@ -9,17 +9,13 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as Data
 from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
-from decision_net import DecisionNet
 from masked_dataset import MaskedDataset
-from modules.net import Net
-from modules.transformer import TransformerEncoder
-from visualize import make_dot
+from net import Net
 
 lambda_q = 0.15
 
