@@ -48,16 +48,13 @@ class Net(nn.Module):
 
         av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
-        set_requires_grad(self.dec_l, False)
-        outputs_av = self.dec_l(av2l_latent)
-        set_requires_grad(self.dec_l, True)
 
         l_latent = self.enc_l(words)[-1]
         outputs_l = self.dec_l(l_latent)
 
         av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-        outputs = self.dec_lav(torch.cat([l_latent + av2l_latent.detach(), av_latent_comp], dim=1))
-        return outputs_av, outputs_l, outputs
+        outputs = self.dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
+        return outputs_l, outputs
 
 def set_requires_grad(module, val):
     for p in module.parameters():

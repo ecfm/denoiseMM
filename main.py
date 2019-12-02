@@ -178,9 +178,7 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l, outputs = net(words, covarep, facet)
-            loss_av = criterion(outputs_av, labels)
-            loss_av.backward(retain_graph=True)
+            outputs_l, outputs = net(words, covarep, facet)
             loss_l = criterion(outputs_l, labels)
             loss_l.backward(retain_graph=True)
 
