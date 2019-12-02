@@ -157,13 +157,13 @@ def train_model(args, config_file_name, model_name):
                                   num_heads=gc.config['n_head_av'],
                                   layers=gc.config['n_layers_av'],
                                   attn_dropout=0.0)
-    proj_av2l = nn.Linear(gc.dim_a + gc.dim_v, gc.dim_l)
+    proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
     enc_av_comp = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
                                      num_heads=gc.config['n_head_av'],
                                      layers=gc.config['n_layers_av'],
                                      attn_dropout=0.0)
-    dec_l = DecisionNet(input_dim=gc.dim_l, output_dim=1)
-    dec_lav = DecisionNet(input_dim=gc.dim_l+gc.dim_a+gc.dim_v, output_dim=1)
+    dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
+    dec_lav = DecisionNet(input_dim=gc.config['d_l']+gc.config['d_a'] + gc.config['d_v'], output_dim=1)
 
     proj_l.to(device)
     proj_a.to(device)
