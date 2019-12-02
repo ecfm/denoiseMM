@@ -233,17 +233,17 @@ def train_model(args, config_file_name, model_name):
             av2l_latent = proj_av2l(av2l_intermediate)
             outputs_av = dec_l_copy(av2l_latent)
             loss_av = criterion(outputs_av, labels)
-            loss_av.backward()
+            loss_av.backward(retain_graph=True)
 
             l_latent = enc_l(words)[-1]
             outputs_l = dec_l(l_latent)
             loss_l = criterion(outputs_l, labels)
-            loss_l.backward()
+            loss_l.backward(retain_graph=True)
 
             av_latent_comp = enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
             outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
             loss_lav = criterion(outputs, labels)
-            loss_lav.backward()
+            loss_lav.backward(retain_graph=True)
 
             optimizer.step()
 
