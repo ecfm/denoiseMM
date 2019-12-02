@@ -17,7 +17,9 @@ from sklearn.metrics import accuracy_score, f1_score
 from consts import global_consts as gc
 from decision_net import DecisionNet
 from masked_dataset import MaskedDataset
+from modules.net import Net
 from modules.transformer import TransformerEncoder
+from visualize import make_dot
 
 lambda_q = 0.15
 
@@ -27,32 +29,23 @@ output_dim_dict = {
     'iemocap': 8
 }
 
-def stopTraining(signum, frame):
+def stopTraining():
     global savedStdout
     logSummary()
     sys.stdout = savedStdout
     sys.exit()
 
-def get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
-                     proj_l, proj_a, proj_v):
+def get_test_metrics(epoch, test_loader, net):
     with torch.no_grad():
         print("Epoch #%d results:" % epoch)
         test_label_all = []
         test_output_all = []
         for data in test_loader:
-            converted_data = convert_data(data, device, False, proj_l, proj_a, proj_v)
-            if converted_data is None:
+            words, covarep, facet, inputLen, labels = data
+            if covarep.size()[0] == 1:
                 continue
-            words, covarep, facet, inputLen, labels = converted_data
 
-            av2l_intermediate = enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
-            av2l_latent = proj_av2l(av2l_intermediate)
-
-            l_latent = enc_l(words)[-1]
-
-            av_latent_comp = enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
-
+            _, _, outputs = net(words, covarep, facet)
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
@@ -143,48 +136,16 @@ def train_model(args, config_file_name, model_name):
     gc.device = device
     print("running device: ", device)
     gc().logParameters()
-    hyp_params = args
-    hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v = gc.dim_l, gc.dim_a, gc.dim_v
     # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
-    proj_l = nn.Conv1d(gc.dim_l, gc.config['d_l'], kernel_size=1, padding=0, bias=False)
-    proj_a = nn.Conv1d(gc.dim_a, gc.config['d_a'], kernel_size=1, padding=0, bias=False)
-    proj_v = nn.Conv1d(gc.dim_v, gc.config['d_v'], kernel_size=1, padding=0, bias=False)
-
-    enc_l = TransformerEncoder(embed_dim=gc.config['d_l'],
-                               num_heads=gc.config['n_head_l'],
-                               layers=gc.config['n_layers_l'],
-                               attn_dropout=0.1)
-    enc_av2l = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
-                                  num_heads=gc.config['n_head_av'],
-                                  layers=gc.config['n_layers_av'],
-                                  attn_dropout=0.0)
-    proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
-    enc_av_comp = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
-                                     num_heads=gc.config['n_head_av'],
-                                     layers=gc.config['n_layers_av'],
-                                     attn_dropout=0.0)
-    dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
-    dec_lav = DecisionNet(input_dim=gc.config['d_l']+gc.config['d_a'] + gc.config['d_v'], output_dim=1)
-
-    proj_l.to(device)
-    proj_a.to(device)
-    proj_v.to(device)
-    enc_l.to(device)
-    enc_av2l.to(device)
-    proj_av2l.to(device)
-    enc_av_comp.to(device)
-    dec_l.to(device)
-    dec_lav.to(device)
+    net = Net()
+    print(net)
 
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
     else:
         criterion = nn.MSELoss()
 
-    optimizer = optim.Adam(list(enc_l.parameters()) + list(enc_av_comp.parameters())
-                           + list(enc_av2l.parameters()) + list(proj_av2l.parameters())
-                           + list(dec_l.parameters()) + list(dec_lav.parameters()),
-                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+    optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
 
@@ -199,20 +160,11 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model, _ = get_test_metrics(epoch, test_loader, device, enc_l, enc_av2l, proj_av2l,
-                                         enc_av_comp, dec_lav, proj_l, proj_a, proj_v)
+        best_model, _ = get_test_metrics(epoch, test_loader, net)
         if best_model:
             torch.save({
                 'epoch': epoch,
-                'proj_l': proj_l.state_dict(),
-                'proj_a': proj_a.state_dict(),
-                'proj_v': proj_v.state_dict(),
-                'enc_l': enc_l.state_dict(),
-                'enc_av2l': enc_av2l.state_dict(),
-                'proj_av2l': proj_av2l.state_dict(),
-                'enc_av_comp': enc_av_comp.state_dict(),
-                'dec_l': dec_l.state_dict(),
-                'dec_lav': dec_lav.state_dict(),
+                'state': net.state_dict(),
                 'best': gc.best
             }, model_path)
         else:
@@ -222,30 +174,19 @@ def train_model(args, config_file_name, model_name):
         output_all = []
         for i, data in enumerate(train_loader):
             optimizer.zero_grad()
-            converted_data = convert_data(data, device, True, proj_l, proj_a, proj_v)
-            if converted_data is None:
+            words, covarep, facet, inputLen, labels = data
+            if covarep.size()[0] == 1:
                 continue
-            words, covarep, facet, inputLen, labels = converted_data
-
-            dec_l_copy = type(dec_l)(input_dim=gc.config['d_l'], output_dim=1)
-            dec_l_copy.load_state_dict(dec_l.state_dict())
-            dec_l_copy.to(device)
-
-            av2l_intermediate = enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
-            av2l_latent = proj_av2l(av2l_intermediate)
-            outputs_av = dec_l_copy(av2l_latent)
+            outputs_av, outputs_l, outputs = net(words, covarep, facet)
             loss_av = criterion(outputs_av, labels)
             loss_av.backward(retain_graph=True)
-
-            l_latent = enc_l(words)[-1]
-            outputs_l = dec_l(l_latent)
             loss_l = criterion(outputs_l, labels)
             loss_l.backward(retain_graph=True)
 
-            av_latent_comp = enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-            outputs = dec_lav(torch.cat([l_latent + av2l_latent, av_latent_comp], dim=1))
             loss_lav = criterion(outputs, labels)
             loss_lav.backward(retain_graph=True)
+            # g = make_dot(outputs, dict(net.named_parameters()))
+            # g.render('model/outputs_detach', view=True)
 
             optimizer.step()
 
@@ -275,38 +216,13 @@ def train_model(args, config_file_name, model_name):
             num_workers=1,
         )
         checkpoint = torch.load(model_path, map_location=device)
-        proj_l.load_state_dict(checkpoint['proj_l'])
-        proj_a.load_state_dict(checkpoint['proj_a'])
-        proj_v.load_state_dict(checkpoint['proj_v'])
-        enc_l.load_state_dict(checkpoint['enc_l'])
-        enc_av2l.load_state_dict(checkpoint['enc_av2l'])
-        proj_av2l.load_state_dict(checkpoint['proj_av2l'])
-        enc_av_comp.load_state_dict(checkpoint['enc_av_comp'])
-        dec_l.load_state_dict(checkpoint['dec_l'])
-        dec_lav.load_state_dict(checkpoint['dec_lav'])
-        _, metrics = get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
-                                      proj_l, proj_a, proj_v)
+        net.load_state_dict(checkpoint['state'])
+        _, metrics = get_test_metrics(-1, test_loader, net)
         maes.append(metrics[0])
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
     print("%s, %.f,%.f,%.f,%.f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
 
 
-def convert_data(data, device, training, proj_l, proj_a, proj_v):
-    words, covarep, facet, inputLen, labels = data
-    if covarep.size()[0] == 1:
-        return None
-    words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-        device), inputLen.to(device), labels.to(device)
-    words = F.dropout(words.transpose(1, 2), p=0.25, training=training)
-    covarep = covarep.transpose(1, 2)
-    facet = facet.transpose(1, 2)
-
-    # Project the textual/visual/audio features
-    words = proj_l(words).permute(2, 0, 1)
-    covarep = proj_a(covarep).permute(2, 0, 1)
-    facet = proj_v(facet).permute(2, 0, 1)
-
-    return words, covarep, facet, inputLen, labels
 
 def eval_mosei_emo(split, output_all, label_all):
     truths = np.array(label_all).reshape((-1, len(gc.best.mosei_cls)))
