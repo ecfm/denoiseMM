@@ -43,7 +43,7 @@ def get_test_metrics(epoch, device, test_loader, net):
             if covarep.size()[0] == 1:
                 continue
 
-            _, _, outputs = net(words, covarep, facet)
+            _, outputs = net(words, covarep, facet)
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
