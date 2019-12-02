@@ -287,9 +287,8 @@ def train_model(args, config_file_name, model_name):
         _, metrics = get_test_metrics(-1, test_loader, device, enc_l, enc_av2l, proj_av2l, enc_av_comp, dec_lav,
                                       proj_l, proj_a, proj_v)
         maes.append(metrics[0])
-    print("mask_ratio=%f, mae=%f" % (0, best_test_mae))
-    for i, mask_ratio in enumerate([0.2, 0.4, 0.6]):
-        print("mask_ratio=%f, mae=%f" % (mask_ratio, maes[i]))
+    print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
+    print("%s, %.f,%.f,%.f,%.f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
 
 
 def convert_data(data, device, training, proj_l, proj_a, proj_v):
