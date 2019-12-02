@@ -178,7 +178,7 @@ def train_model(args, config_file_name, model_name):
             mask_ratio = np.random.choice([0, 0.2, 0.4], p=[0.7, 0.2, 0.1])
             if mask_ratio > 0:
                 m = np.random.choice([0, 1], p=[mask_ratio, 1 - mask_ratio], size=(words.shape[0], words.shape[1], 1))
-                words = words * torch.tensor(m)
+                words = words * torch.tensor(m.astype(np.float32))
             words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
