@@ -173,19 +173,24 @@ def train_model(args, config_file_name, model_name):
         output_all = []
         for i, data in enumerate(train_loader):
             optimizer.zero_grad()
-            words, covarep, facet, inputLen, labels = data
-            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
-                                                      inputLen.to(device), labels.to(device)
+            words, covarep, facet, masked_words, inputLen, labels = data
+            words, covarep, facet, masked_words, inputLen, labels = words.to(device), covarep.to(device), facet.to(
+                device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
             outputs_av, outputs_l, outputs = net(words, covarep, facet)
+            m = np.random.choice([0, 1], p=[0.2, 0.8], size=(words.shape[0], words.shape[1], 1))
+            _, _, masked_outputs = net(masked_words, covarep, facet)
+
             loss_av = criterion(outputs_av, labels)
             loss_av.backward(retain_graph=True)
             loss_l = criterion(outputs_l, labels)
             loss_l.backward(retain_graph=True)
 
             loss_lav = criterion(outputs, labels)
-            loss_lav.backward(retain_graph=True)
+            loss_masked_lav = criterion(masked_outputs, labels).detach()
+            scaled_loss_lav = loss_lav * loss_masked_lav
+            scaled_loss_lav.backward(retain_graph=True)
             # g = make_dot(outputs, dict(net.named_parameters()))
             # g.render('model/outputs_detach', view=True)
 
