@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
 from masked_dataset import MaskedDataset
-from net import Net
+from models import MULTModel
 
 lambda_q = 0.15
 
@@ -43,7 +43,7 @@ def get_test_metrics(epoch, device, test_loader, net):
             if covarep.size()[0] == 1:
                 continue
 
-            _, _, outputs = net(words, covarep, facet)
+            outputs, _ = net(words, covarep, facet)
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
@@ -135,7 +135,7 @@ def train_model(args, config_file_name, model_name):
     print("running device: ", device)
     gc().logParameters()
     # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
-    net = Net()
+    net = MULTModel(output_dim=1)
     net.to(device)
     print(net)
 
@@ -178,14 +178,8 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l, outputs = net(words, covarep, facet)
-            m = np.random.choice([0, 1], p=[0.2, 0.8], size=(words.shape[0], words.shape[1], 1))
+            outputs, _ = net(words, covarep, facet)
             _, _, masked_outputs = net(masked_words, covarep, facet)
-
-            loss_av = criterion(outputs_av, labels)
-            loss_av.backward(retain_graph=True)
-            loss_l = criterion(outputs_l, labels)
-            loss_l.backward(retain_graph=True)
 
             loss_lav = criterion(outputs, labels)
             loss_masked_lav = criterion(masked_outputs, labels).detach()
