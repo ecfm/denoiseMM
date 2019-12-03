@@ -179,7 +179,7 @@ def train_model(args, config_file_name, model_name):
             if covarep.size()[0] == 1:
                 continue
             outputs, _ = net(words, covarep, facet)
-            _, _, masked_outputs = net(masked_words, covarep, facet)
+            masked_outputs, _ = net(masked_words, covarep, facet)
 
             loss_lav = criterion(outputs, labels)
             loss_masked_lav = criterion(masked_outputs, labels).detach()
