@@ -43,7 +43,7 @@ def get_test_metrics(epoch, device, test_loader, net):
             if covarep.size()[0] == 1:
                 continue
 
-            _, _, outputs = net(words, covarep, facet)
+            outputs = net(words, covarep, facet)
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
@@ -178,23 +178,19 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l, outputs = net(words, covarep, facet)
-            loss_av = criterion(outputs_av, labels)
-            loss_av.backward(retain_graph=True)
-            loss_l = criterion(outputs_l, labels)
-            loss_l.backward(retain_graph=True)
+            outputs = net(words, covarep, facet)
 
-            loss_lav = criterion(outputs, labels)
-            loss_lav.backward(retain_graph=True)
+            loss_av = criterion(outputs, labels)
+            loss_av.backward(retain_graph=True)
             # g = make_dot(outputs, dict(net.named_parameters()))
             # g.render('model/outputs_detach', view=True)
 
             optimizer.step()
 
-            running_loss += loss_lav.item()
+            running_loss += loss_av.item()
             output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
-            del loss_lav
+            del loss_av
             del outputs
             if i % 20 == 19:
                 torch.cuda.empty_cache()
