@@ -59,6 +59,7 @@ def get_test_metrics(epoch, device, test_loader, net):
                 gc.best.min_test_mae_l = test_mae_l
             if test_mae_av < gc.best.min_test_mae_av:
                 gc.best.min_test_mae_av = test_mae_av
+                gc.best.best_epoch = epoch
         return best_model, test_mae_av, test_mae_l, None
 
 
