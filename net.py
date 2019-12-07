@@ -28,7 +28,7 @@ class Net(nn.Module):
         self.proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
         self.dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
 
-    def forward(self, x_l, x_a, x_v, train_l=False):
+    def forward(self, x_l=None, x_a=None, x_v=None, train_l=False):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
