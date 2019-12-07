@@ -28,14 +28,14 @@ class Net(nn.Module):
         self.proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
         self.dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
 
-    def forward(self, x_l=None, x_a=None, x_v=None, train_l=False):
+    def forward(self, x_l, x_a, x_v, train_l=False):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-        words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
-        words = self.proj_l(words).permute(2, 0, 1)
-        l_latent = self.enc_l(words)[-1]
         if train_l:
+            words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
+            words = self.proj_l(words).permute(2, 0, 1)
+            l_latent = self.enc_l(words)[-1]
             outputs_l = self.dec_l(l_latent)
             return outputs_l
         covarep = x_a.transpose(1, 2)
@@ -50,7 +50,7 @@ class Net(nn.Module):
         set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
         set_requires_grad(self.dec_l, True)
-        return outputs_av, l_latent, av2l_latent
+        return outputs_av
 
 def set_requires_grad(module, val):
     for p in module.parameters():
