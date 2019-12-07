@@ -203,9 +203,10 @@ def train_model(args, config_file_name, model_name):
         maes_l.append(mae_l)
         maes.append(mae)
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
-    print("%s, av, %f,%f,%f,%f" % (config_name, best_test_mae, maes_av[0], maes_av[1], maes_av[2]))
-    print("%s, l, %f,%f,%f,%f" % (config_name, best_test_mae, maes_l[0], maes_l[1], maes_l[2]))
-    print("%s, lav, %f,%f,%f,%f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
+    with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
+        f.write("%s, av, %f,%f,%f,%f\n" % (config_name, best_test_mae, maes_av[0], maes_av[1], maes_av[2]))
+        f.write("%s, l, %f,%f,%f,%f\n" % (config_name, best_test_mae, maes_l[0], maes_l[1], maes_l[2]))
+        f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
 
 
 
