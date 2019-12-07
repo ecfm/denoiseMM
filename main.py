@@ -45,7 +45,7 @@ def get_test_metrics(epoch, device, test_loader, net):
             if covarep.size()[0] == 1:
                 continue
             if epoch < 50:
-                outputs_l = net(words, covarep, facet)
+                outputs_l = net(words, covarep, facet, True)
                 test_output_l_all.extend(outputs_l.tolist())
             else:
                 outputs_av = net(words, covarep, facet)
@@ -161,7 +161,7 @@ def train_model(args, config_file_name, model_name):
             if covarep.size()[0] == 1:
                 continue
             if epoch < 50:
-                outputs_l = net(words, covarep, facet)
+                outputs_l = net(words, covarep, facet, True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
                 output_l_all.extend(outputs_l.tolist())
