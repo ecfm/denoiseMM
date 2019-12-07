@@ -60,11 +60,13 @@ def get_test_metrics(epoch, device, test_loader, net):
             if test_mae_l < gc.best.min_test_mae_l:
                 gc.best.min_test_mae_l = test_mae_l
                 gc.best.best_epoch = epoch
+                best_model = True
         if len(test_output_av_all) > 0:
             test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
             if test_mae_av < gc.best.min_test_mae_av:
                 gc.best.min_test_mae_av = test_mae_av
                 gc.best.best_epoch = epoch
+                best_model = True
         return best_model, test_mae_av, test_mae_l, None
 
 
@@ -131,7 +133,7 @@ def train_model(args, config_file_name, model_name):
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
-
+    l_mode = True
     for epoch in range(start_epoch, gc.config['epoch_num']):
         if epoch % 10 == 0:
             print("HPID:%d:Training Epoch %d." % (gc.HPID, epoch))
@@ -149,7 +151,13 @@ def train_model(args, config_file_name, model_name):
             }, model_path)
         else:
             if epoch - gc.best.best_epoch > 40:
-                break
+                if l_mode:
+                    print("!!!!!!!!!!!!!!!!STOP L-mode")
+                    l_mode = False
+                    checkpoint = torch.load(model_path, map_location=device)
+                    net.load_state_dict(checkpoint['state'])
+                else:
+                    break
         label_all = []
         output_l_all = []
         output_av_all = []
@@ -160,12 +168,11 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch < gc.l_epoch:
+            if epoch < gc.l_epoch and l_mode:
                 outputs_l = net(x_l=words, train_l=True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
                 output_l_all.extend(outputs_l.tolist())
-
             else:
                 outputs_av = net(x_a=covarep, x_v=facet)
                 loss_av = criterion(outputs_av, labels)
