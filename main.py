@@ -175,7 +175,6 @@ def train_model(args, config_file_name, model_name):
 
             optimizer.step()
             label_all.extend(labels.tolist())
-            del loss_av, outputs_av, outputs_l
             if i % 20 == 19:
                 torch.cuda.empty_cache()
         if len(output_l_all) > 0:
