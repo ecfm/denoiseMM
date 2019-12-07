@@ -44,6 +44,8 @@ class Best():
 
     min_train_mae = 10
     min_test_mae = 10
+    min_test_mae_av = 10
+    min_test_mae_l = 10
     max_test_cor = 0
     min_valid_mae = 10
     max_valid_cor = 0
