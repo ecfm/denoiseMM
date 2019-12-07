@@ -50,8 +50,6 @@ class Net(nn.Module):
             facet = x_v.transpose(1, 2)
             covarep = self.proj_a(covarep).permute(2, 0, 1)
             facet = self.proj_v(facet).permute(2, 0, 1)
-            covarep = self.proj_a(covarep).permute(2, 0, 1)
-            facet = self.proj_v(facet).permute(2, 0, 1)
 
             av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
             av2l_latent = self.proj_av2l(av2l_intermediate)
