@@ -150,13 +150,15 @@ def train_model(args, config_file_name, model_name):
                 'best': gc.best
             }, model_path)
         else:
-            if epoch - gc.best.best_epoch > 40:
-                if l_mode:
+            if l_mode:
+                if epoch - gc.best.best_epoch > 20:
                     print("!!!!!!!!!!!!!!!!STOP L-mode")
                     l_mode = False
                     checkpoint = torch.load(model_path, map_location=device)
                     net.load_state_dict(checkpoint['state'])
-                else:
+                    gc.best.best_epoch = epoch
+            else:
+                if epoch - gc.best.best_epoch > 60:
                     break
         label_all = []
         output_l_all = []
