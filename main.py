@@ -11,13 +11,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as Data
-from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
 from masked_dataset import MaskedDataset
 from net import Net
 
 lambda_q = 0.15
+np.random.seed(0)
 
 output_dim_dict = {
     'mosi': 1,
@@ -35,7 +35,11 @@ def get_test_metrics(epoch, device, test_loader, net):
     with torch.no_grad():
         print("Epoch #%d results:" % epoch)
         test_label_all = []
+        test_output_l_all = []
+        test_output_av_all = []
         test_output_all = []
+
+
         for data in test_loader:
             words, covarep, facet, inputLen, labels = data
             words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
@@ -43,45 +47,23 @@ def get_test_metrics(epoch, device, test_loader, net):
             if covarep.size()[0] == 1:
                 continue
 
-            _, _, outputs = net(words, covarep, facet)
+            outputs_av, outputs_l, outputs = net(None, words, covarep, facet)
+            test_output_l_all.extend(outputs_l.tolist())
+            test_output_av_all.extend(outputs_av.tolist())
             test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
         best_model = False
+        test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
+        test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
+        test_mae = eval_senti('test', 'lav', test_output_l_all, test_label_all)
 
-        if gc.dataset == 'mosei_emo':
-            test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
-            for cls in gc.best.mosei_cls:
-                if test_mae[cls] < gc.best.mosei_emo_best_mae[cls]:
-                    gc.best.mosei_emo_best_mae[cls] = test_mae[cls]
-                    gc.best.best_epoch = epoch + 1
-                    best_model = True
-        else:
-            test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven, test_f1_muit, \
-            test_ex_zero_acc = eval_senti('test', test_output_all, test_label_all)
-            if len(test_output_all) > 0:
-                if test_mae < gc.best.min_test_mae:
-                    gc.best.min_test_mae = test_mae
-                    gc.best.best_epoch = epoch + 1
-                    best_model = True
-                if test_cor > gc.best.max_test_cor:
-                    gc.best.max_test_cor = test_cor
-                if test_acc > gc.best.max_test_acc:
-                    gc.best.max_test_acc = test_acc
-                if test_ex_zero_acc > gc.best.max_test_ex_zero_acc:
-                    gc.best.max_test_ex_zero_acc = test_ex_zero_acc
-                if test_acc_5 > gc.best.max_test_acc_5:
-                    gc.best.max_test_acc_5 = test_acc_5
-                if test_acc_7 > gc.best.max_test_acc_7:
-                    gc.best.max_test_acc_7 = test_acc_7
-                if test_f1_mfn > gc.best.max_test_f1_mfn:
-                    gc.best.max_test_f1_mfn = test_f1_mfn
-                if test_f1_raven > gc.best.max_test_f1_raven:
-                    gc.best.max_test_f1_raven = test_f1_raven
-                if test_f1_muit > gc.best.max_test_f1_muit:
-                    gc.best.max_test_f1_muit = test_f1_muit
-        return best_model, (test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven,
-                            test_f1_muit, test_ex_zero_acc)
+        if len(test_label_all) > 0:
+            if test_mae_av < gc.best.min_test_mae:
+                gc.best.min_test_mae = test_mae_av
+                gc.best.best_epoch = epoch + 1
+                best_model = True
+        return best_model, test_mae_av, test_mae_l, test_mae
 
 
 def train_model(args, config_file_name, model_name):
@@ -148,9 +130,6 @@ def train_model(args, config_file_name, model_name):
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
 
-    eval_method = eval_senti
-
-    running_loss = 0.0
     for epoch in range(start_epoch, gc.config['epoch_num']):
         if epoch % 10 == 0:
             print("HPID:%d:Training Epoch %d." % (gc.HPID, epoch))
@@ -159,7 +138,7 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model, _ = get_test_metrics(epoch, device, test_loader, net)
+        best_model, _, _, _ = get_test_metrics(epoch, device, test_loader, net)
         if best_model:
             torch.save({
                 'epoch': epoch,
@@ -170,6 +149,8 @@ def train_model(args, config_file_name, model_name):
             if epoch - gc.best.best_epoch > 40:
                 break
         label_all = []
+        output_l_all = []
+        output_av_all = []
         output_all = []
         for i, data in enumerate(train_loader):
             optimizer.zero_grad()
@@ -178,38 +159,32 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l, outputs = net(words, covarep, facet)
-            m = np.random.choice([0, 1], p=[0.2, 0.8], size=(words.shape[0], words.shape[1], 1))
-            _, _, masked_outputs = net(masked_words, covarep, facet)
-
+            outputs_av, outputs_l, outputs = net(words, masked_words, covarep, facet)
             loss_av = criterion(outputs_av, labels)
             loss_av.backward(retain_graph=True)
             loss_l = criterion(outputs_l, labels)
             loss_l.backward(retain_graph=True)
-
             loss_lav = criterion(outputs, labels)
-            loss_masked_lav = criterion(masked_outputs, labels).detach()
-            scaled_loss_lav = loss_lav * loss_masked_lav
-            scaled_loss_lav.backward(retain_graph=True)
+            loss_lav.backward(retain_graph=True)
             # g = make_dot(outputs, dict(net.named_parameters()))
             # g.render('model/outputs_detach', view=True)
 
             optimizer.step()
 
-            running_loss += loss_lav.item()
+            output_l_all.extend(outputs_l.tolist())
+            output_av_all.extend(outputs_av.tolist())
             output_all.extend(outputs.tolist())
             label_all.extend(labels.tolist())
-            del loss_lav
-            del outputs
+            del loss_l, loss_av, outputs_av, outputs_l
             if i % 20 == 19:
                 torch.cuda.empty_cache()
-            if i % 200 == 199:
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 50))
-                running_loss = 0.0
 
-        eval_method('train', output_all, label_all)
+        eval_senti('train', 'l', output_l_all, label_all)
+        eval_senti('train', 'av', output_av_all, label_all)
+        eval_senti('train', 'lav', output_all, label_all)
 
+    maes_av = []
+    maes_l = []
     maes = []
     best_test_mae = gc.best.min_test_mae
     for mask_ratio in [0.2, 0.4, 0.6]:
@@ -223,10 +198,14 @@ def train_model(args, config_file_name, model_name):
         )
         checkpoint = torch.load(model_path, map_location=device)
         net.load_state_dict(checkpoint['state'])
-        _, metrics = get_test_metrics(-1, device, test_loader, net)
-        maes.append(metrics[0])
+        _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
+        maes_av.append(mae_av)
+        maes_l.append(mae_l)
+        maes.append(mae)
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
-    print("%s, %f,%f,%f,%f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
+    print("%s, av, %f,%f,%f,%f" % (config_name, best_test_mae, maes_av[0], maes_av[1], maes_av[2]))
+    print("%s, l, %f,%f,%f,%f" % (config_name, best_test_mae, maes_l[0], maes_l[1], maes_l[2]))
+    print("%s, lav, %f,%f,%f,%f" % (config_name, best_test_mae, maes[0], maes[1], maes[2]))
 
 
 
@@ -252,36 +231,28 @@ def multiclass_acc(preds, truths):
     return np.sum(np.round(preds) == np.round(truths)) / float(len(truths))
 
 
-def eval_senti(split, output_all, label_all):
+def eval_senti(split, mod, output_all, label_all):
     truth = np.array(label_all)
     preds = np.array(output_all)
     mae = np.mean(np.abs(truth - preds))
-    acc = accuracy_score(truth >= 0, preds >= 0)
-    corr = np.corrcoef(preds, truth)[0][1]
-    non_zeros = np.array([i for i, e in enumerate(truth) if e != 0])
-
-    preds_a7 = np.clip(preds, a_min=-3., a_max=3.)
-    truth_a7 = np.clip(truth, a_min=-3., a_max=3.)
-    preds_a5 = np.clip(preds, a_min=-2., a_max=2.)
-    truth_a5 = np.clip(truth, a_min=-2., a_max=2.)
-    acc_7 = multiclass_acc(preds_a7, truth_a7)
-    acc_5 = multiclass_acc(preds_a5, truth_a5)
-    f1_mfn = f1_score(np.round(truth), np.round(preds), average="weighted")
-    f1_raven = f1_score(truth >= 0, preds >= 0, average="weighted")
-    f1_muit = f1_score((preds[non_zeros] > 0), (truth[non_zeros] > 0), average='weighted')
-    binary_truth = (truth[non_zeros] > 0)
-    binary_preds = (preds[non_zeros] > 0)
-    ex_zero_acc = accuracy_score(binary_truth, binary_preds)
-    print("\t%s mean error: %f" % (split, mae))
-    print("\t%s correlation coefficient: %f" % (split, corr))
-    print("\t%s accuracy: %f" % (split, acc))
-    print("\t%s mult_acc_7: %f" % (split, acc_7))
-    print("\t%s mult_acc_5: %f" % (split, acc_5))
-    print("\t%s F1 MFN: %f " % (split, f1_mfn))
-    print("\t%s F1 RAVEN: %f " % (split, f1_raven))
-    print("\t%s F1 MuIT: %f " % (split, f1_muit))
-    print("\t%s exclude zero accuracy: %f" % (split, ex_zero_acc))
-    return mae, corr, acc, acc_7, acc_5, f1_mfn, f1_raven, f1_muit, ex_zero_acc
+    # acc = accuracy_score(truth >= 0, preds >= 0)
+    # corr = np.corrcoef(preds, truth)[0][1]
+    # non_zeros = np.array([i for i, e in enumerate(truth) if e != 0])
+    #
+    # preds_a7 = np.clip(preds, a_min=-3., a_max=3.)
+    # truth_a7 = np.clip(truth, a_min=-3., a_max=3.)
+    # preds_a5 = np.clip(preds, a_min=-2., a_max=2.)
+    # truth_a5 = np.clip(truth, a_min=-2., a_max=2.)
+    # acc_7 = multiclass_acc(preds_a7, truth_a7)
+    # acc_5 = multiclass_acc(preds_a5, truth_a5)
+    # f1_mfn = f1_score(np.round(truth), np.round(preds), average="weighted")
+    # f1_raven = f1_score(truth >= 0, preds >= 0, average="weighted")
+    # f1_muit = f1_score((preds[non_zeros] > 0), (truth[non_zeros] > 0), average='weighted')
+    # binary_truth = (truth[non_zeros] > 0)
+    # binary_preds = (preds[non_zeros] > 0)
+    # ex_zero_acc = accuracy_score(binary_truth, binary_preds)
+    print("\t%s mae_%s : %f" % (split, mod, mae))
+    return mae
 
 
 def logSummary():

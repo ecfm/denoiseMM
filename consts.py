@@ -8,7 +8,7 @@ class global_consts():
 
     save_grad = False
 
-    dataset = "mosei_senti"
+    dataset = "mosei_senti_2E-01_dirty_train_data"
     data_path = "/work/chengfem/data/"
     # data_path = "/Users/cask/MultiComp/data/"
     model_path = "model/"
