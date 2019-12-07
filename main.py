@@ -163,25 +163,29 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l, outputs = net(words, masked_words, covarep, facet)
-            loss_av = criterion(outputs_av, labels)
-            loss_av.backward(retain_graph=True)
-            loss_l = criterion(outputs_l, labels)
-            loss_l.backward(retain_graph=True)
-            loss_lav = criterion(outputs, labels)
-            loss_lav.backward(retain_graph=True)
-            # g = make_dot(outputs, dict(net.named_parameters()))
-            # g.render('model/outputs_detach', view=True)
+            if epoch // 10 < 4:
+                outputs_l = net(words, masked_words, covarep, facet, True)
+                loss_l = criterion(outputs_l, labels)
+                loss_l.backward(retain_graph=True)
+                optimizer.step()
+            else:
+                outputs_av, outputs_l, outputs = net(words, masked_words, covarep, facet)
+                loss_av = criterion(outputs_av, labels)
+                loss_av.backward(retain_graph=True)
+                loss_lav = criterion(outputs, labels)
+                loss_lav.backward(retain_graph=True)
+                # g = make_dot(outputs, dict(net.named_parameters()))
+                # g.render('model/outputs_detach', view=True)
 
-            optimizer.step()
+                optimizer.step()
 
-            output_l_all.extend(outputs_l.tolist())
-            output_av_all.extend(outputs_av.tolist())
-            output_all.extend(outputs.tolist())
-            label_all.extend(labels.tolist())
-            del loss_l, loss_av, outputs_av, outputs_l
-            if i % 20 == 19:
-                torch.cuda.empty_cache()
+                output_l_all.extend(outputs_l.tolist())
+                output_av_all.extend(outputs_av.tolist())
+                output_all.extend(outputs.tolist())
+                label_all.extend(labels.tolist())
+                del loss_av, outputs_av, outputs_l
+                if i % 20 == 19:
+                    torch.cuda.empty_cache()
 
         eval_senti('train', 'l', output_l_all, label_all)
         eval_senti('train', 'av', output_av_all, label_all)

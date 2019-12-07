@@ -34,11 +34,16 @@ class Net(nn.Module):
         self.dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
         self.dec_lav = DecisionNet(input_dim=gc.config['d_l'] + gc.config['d_a'] + gc.config['d_v'], output_dim=1)
 
-    def forward(self, x_l, x_l_masked, x_a, x_v):
+    def forward(self, x_l, x_l_masked, x_a, x_v, train_l=False):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-
+        if train_l:
+            words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
+            words = self.proj_l(words).permute(2, 0, 1)
+            l_latent = self.enc_l(words)[-1]
+            outputs_l = self.dec_l(l_latent)
+            return outputs_l
 
         masked_words = F.dropout(x_l_masked.transpose(1, 2), p=0.25, training=self.training)
         covarep = x_a.transpose(1, 2)
@@ -56,13 +61,7 @@ class Net(nn.Module):
         outputs_av = self.dec_l(av2l_latent)
         set_requires_grad(self.dec_l, True)
 
-        if x_l is not None:
-            words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
-            words = self.proj_l(words).permute(2, 0, 1)
-            l_latent = self.enc_l(words)[-1]
-            outputs_l = self.dec_l(l_latent)
-        else:
-            outputs_l = self.dec_l(masked_l_latent)
+        outputs_l = self.dec_l(masked_l_latent)
         av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
         combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent, av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
