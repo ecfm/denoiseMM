@@ -150,7 +150,7 @@ def train_model(args, config_file_name, model_name):
                 'best': gc.best
             }, model_path)
         else:
-            if epoch - gc.best.best_epoch > 40:
+            if epoch - gc.best.best_epoch > 80:
                 break
         label_all = []
         output_l_all = []
@@ -163,11 +163,15 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch % 10 < 4:
-                outputs_l = net(words, masked_words, covarep, facet, True)
+            if epoch % 15 < 4:
+                outputs_l = net(words, masked_words, covarep, facet, train_l=True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
                 optimizer.step()
+            elif epoch % 15 < 10:
+                outputs_av = net(words, masked_words, covarep, facet, train_av=True)
+                loss_av = criterion(outputs_av, labels)
+                loss_av.backward(retain_graph=True)
             else:
                 outputs_av, outputs_l, outputs = net(words, masked_words, covarep, facet)
                 loss_av = criterion(outputs_av, labels)

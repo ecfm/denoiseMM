@@ -34,7 +34,7 @@ class Net(nn.Module):
         self.dec_l = DecisionNet(input_dim=gc.config['d_l'], output_dim=1)
         self.dec_lav = DecisionNet(input_dim=gc.config['d_l'] + gc.config['d_a'] + gc.config['d_v'], output_dim=1)
 
-    def forward(self, x_l, x_l_masked, x_a, x_v, train_l=False):
+    def forward(self, x_l, x_l_masked, x_a, x_v, train_l=False, train_av=False):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
@@ -45,6 +45,21 @@ class Net(nn.Module):
             outputs_l = self.dec_l(l_latent)
             return outputs_l
 
+        if train_av:
+            covarep = x_a.transpose(1, 2)
+            facet = x_v.transpose(1, 2)
+            covarep = self.proj_a(covarep).permute(2, 0, 1)
+            facet = self.proj_v(facet).permute(2, 0, 1)
+            covarep = self.proj_a(covarep).permute(2, 0, 1)
+            facet = self.proj_v(facet).permute(2, 0, 1)
+
+            av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
+            av2l_latent = self.proj_av2l(av2l_intermediate)
+            set_requires_grad(self.dec_l, False)
+            outputs_av = self.dec_l(av2l_latent)
+            set_requires_grad(self.dec_l, True)
+            return outputs_av
+
         masked_words = F.dropout(x_l_masked.transpose(1, 2), p=0.25, training=self.training)
         covarep = x_a.transpose(1, 2)
         facet = x_v.transpose(1, 2)
@@ -52,9 +67,9 @@ class Net(nn.Module):
         # Project the textual/visual/audio features
         masked_words = self.proj_l(masked_words).permute(2, 0, 1)
         masked_l_latent = self.enc_l(masked_words)[-1]
+
         covarep = self.proj_a(covarep).permute(2, 0, 1)
         facet = self.proj_v(facet).permute(2, 0, 1)
-
         av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
         set_requires_grad(self.dec_l, False)
