@@ -59,6 +59,7 @@ def get_test_metrics(epoch, device, test_loader, net):
             test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
             if test_mae_l < gc.best.min_test_mae_l:
                 gc.best.min_test_mae_l = test_mae_l
+                gc.best.best_epoch = epoch
         if len(test_output_av_all) > 0:
             test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
             if test_mae_av < gc.best.min_test_mae_av:
