@@ -26,6 +26,7 @@ class Net(nn.Module):
                                       layers=gc.config['n_layers_av'],
                                       attn_dropout=0.0)
         self.proj_av2l = nn.Linear(gc.config['d_a'] + gc.config['d_v'], gc.config['d_l'])
+        self.proj_double_l = nn.Linear(gc.config['d_l'] * 2, gc.config['d_l'])
         self.enc_av_comp = TransformerEncoder(embed_dim=gc.config['d_a'] + gc.config['d_v'],
                                          num_heads=gc.config['n_head_av'],
                                          layers=gc.config['n_layers_av'],
@@ -47,17 +48,18 @@ class Net(nn.Module):
         facet = self.proj_v(facet).permute(2, 0, 1)
 
         av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
-        av2l_latent = self.proj_av2l(av2l_intermediate)
+        av2l_latent = F.sigmoid(self.proj_av2l(av2l_intermediate))
         set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
         set_requires_grad(self.dec_l, True)
 
-        l_latent = self.enc_l(words)[-1]
+        l_latent = F.sigmoid(self.enc_l(words)[-1])
         outputs_l = self.dec_l(l_latent)
 
         av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
-        outputs = self.dec_lav(torch.cat([l_latent + av2l_latent.detach(), av_latent_comp], dim=1))
-        return outputs_av, outputs_l, outputs
+        combined_l_latent = self.proj_double_l(torch.cat([l_latent, av2l_latent.detach()], dim=1))
+        outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
+        return l_latent, av2l_latent, outputs_av, outputs_l, outputs
 
 def set_requires_grad(module, val):
     for p in module.parameters():
