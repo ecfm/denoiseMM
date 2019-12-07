@@ -44,19 +44,21 @@ def get_test_metrics(epoch, device, test_loader, net):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-
-            outputs_av, outputs_l = net(words, covarep, facet)
-            test_output_l_all.extend(outputs_l.tolist())
-            test_output_av_all.extend(outputs_av.tolist())
+            if epoch < 50:
+                outputs_l = net(words, covarep, facet)
+                test_output_l_all.extend(outputs_l.tolist())
+            else:
+                outputs_av = net(words, covarep, facet)
+                test_output_av_all.extend(outputs_av.tolist())
             test_label_all.extend(labels.tolist())
 
         best_model = False
-        test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
-        test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
-
-        if len(test_label_all) > 0:
+        if len(test_output_l_all) > 0:
+            test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
             if test_mae_l < gc.best.min_test_mae_l:
                 gc.best.min_test_mae_l = test_mae_l
+        if len(test_output_av_all) > 0:
+            test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
             if test_mae_av < gc.best.min_test_mae_av:
                 gc.best.min_test_mae_av = test_mae_av
                 gc.best.best_epoch = epoch
@@ -155,26 +157,29 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            outputs_av, outputs_l = net(words, covarep, facet)
-            loss_av = criterion(outputs_av, labels)
-            loss_av.backward(retain_graph=True)
-            loss_l = criterion(outputs_l, labels)
-            loss_l.backward(retain_graph=True)
+            if epoch < 50:
+                outputs_l = net(words, covarep, facet)
+                loss_l = criterion(outputs_l, labels)
+                loss_l.backward(retain_graph=True)
+                output_l_all.extend(outputs_l.tolist())
 
+            else:
+                outputs_av = net(words, covarep, facet)
+                loss_av = criterion(outputs_av, labels)
+                output_av_all.extend(outputs_av.tolist())
+                loss_av.backward(retain_graph=True)
             # g = make_dot(outputs, dict(net.named_parameters()))
             # g.render('model/outputs_detach', view=True)
 
             optimizer.step()
-
-            output_l_all.extend(outputs_l.tolist())
-            output_av_all.extend(outputs_av.tolist())
             label_all.extend(labels.tolist())
             del loss_av, outputs_av, outputs_l
             if i % 20 == 19:
                 torch.cuda.empty_cache()
-
-        eval_senti('train', 'l', output_l_all, label_all)
-        eval_senti('train', 'av', output_av_all, label_all)
+        if len(output_l_all) > 0:
+            eval_senti('train', 'l', output_l_all, label_all)
+        if len(output_av_all) > 0:
+            eval_senti('train', 'av', output_av_all, label_all)
 
     maes_av = []
     maes_l = []
