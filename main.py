@@ -163,7 +163,7 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch // 10 < 4:
+            if epoch % 10 < 4:
                 outputs_l = net(words, masked_words, covarep, facet, True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
