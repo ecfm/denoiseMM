@@ -7,6 +7,7 @@ class global_consts():
     SDK_PATH = "/work/chengfem/CMU-MultimodalSDK"
 
     save_grad = False
+    l_epoch = 50
 
     dataset = "mosei_senti"
     data_path = "/work/chengfem/data/"

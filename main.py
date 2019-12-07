@@ -44,11 +44,11 @@ def get_test_metrics(epoch, device, test_loader, net):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch < 50:
-                outputs_l = net(words, covarep, facet, True)
+            if epoch < gc.l_epoch:
+                outputs_l = net(x_l=words, train_l=True)
                 test_output_l_all.extend(outputs_l.tolist())
             else:
-                outputs_av = net(words, covarep, facet)
+                outputs_av = net(x_a=covarep, x_v=facet)
                 test_output_av_all.extend(outputs_av.tolist())
             test_label_all.extend(labels.tolist())
 
@@ -160,17 +160,17 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch < 50:
-                outputs_l = net(words, covarep, facet, True)
+            if epoch < gc.l_epoch:
+                outputs_l = net(x_l=words, train_l=True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
                 output_l_all.extend(outputs_l.tolist())
 
             else:
-                outputs_av = net(words, covarep, facet)
+                outputs_av = net(x_a=covarep, x_v=facet)
                 loss_av = criterion(outputs_av, labels)
-                output_av_all.extend(outputs_av.tolist())
                 loss_av.backward(retain_graph=True)
+                output_av_all.extend(outputs_av.tolist())
             # g = make_dot(outputs, dict(net.named_parameters()))
             # g.render('model/outputs_detach', view=True)
 
