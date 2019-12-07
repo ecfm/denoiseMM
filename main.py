@@ -51,14 +51,15 @@ def get_test_metrics(epoch, device, test_loader, net):
             test_label_all.extend(labels.tolist())
 
         best_model = False
-        test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
         test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
+        test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
+
         if len(test_label_all) > 0:
-            if test_mae_av < gc.best.min_test_mae:
-                gc.best.min_test_mae = test_mae_av
-                gc.best.best_epoch = epoch + 1
-                best_model = True
-        return best_model, test_mae_av, test_mae_l
+            if test_mae_l < gc.best.min_test_mae_l:
+                gc.best.min_test_mae_l = test_mae_l
+            if test_mae_av < gc.best.min_test_mae_av:
+                gc.best.min_test_mae_av = test_mae_av
+        return best_model, test_mae_av, test_mae_l, None
 
 
 def train_model(args, config_file_name, model_name):
@@ -133,7 +134,7 @@ def train_model(args, config_file_name, model_name):
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        best_model, _, _ = get_test_metrics(epoch, device, test_loader, net)
+        best_model, _, _, _ = get_test_metrics(epoch, device, test_loader, net)
         if best_model:
             torch.save({
                 'epoch': epoch,
@@ -167,7 +168,7 @@ def train_model(args, config_file_name, model_name):
             output_l_all.extend(outputs_l.tolist())
             output_av_all.extend(outputs_av.tolist())
             label_all.extend(labels.tolist())
-            del loss_l, loss_av, outputs_av, outputs_l
+            del loss_av, outputs_av, outputs_l
             if i % 20 == 19:
                 torch.cuda.empty_cache()
 
@@ -176,7 +177,6 @@ def train_model(args, config_file_name, model_name):
 
     maes_av = []
     maes_l = []
-    best_test_mae = gc.best.min_test_mae
     for mask_ratio in [0.2, 0.4, 0.6]:
         ds = MaskedDataset
         test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
@@ -188,13 +188,13 @@ def train_model(args, config_file_name, model_name):
         )
         checkpoint = torch.load(model_path, map_location=device)
         net.load_state_dict(checkpoint['state'])
-        _, mae_av, mae_l = get_test_metrics(-1, device, test_loader, net)
+        _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
         maes_av.append(mae_av)
         maes_l.append(mae_l)
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
-    print("%s, av, %f,%f,%f,%f" % (config_name, best_test_mae, maes_av[0], maes_av[1], maes_av[2]))
-    print("%s, l, %f,%f,%f,%f" % (config_name, best_test_mae, maes_l[0], maes_l[1], maes_l[2]))
-
+    with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
+        f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
+        f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
 
 
 
