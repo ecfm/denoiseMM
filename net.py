@@ -46,6 +46,7 @@ class Net(nn.Module):
 
         # Project the textual/visual/audio features
         masked_words = self.proj_l(masked_words).permute(2, 0, 1)
+        masked_l_latent = self.enc_l(masked_words)[-1]
         covarep = self.proj_a(covarep).permute(2, 0, 1)
         facet = self.proj_v(facet).permute(2, 0, 1)
 
@@ -54,13 +55,14 @@ class Net(nn.Module):
         set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
         set_requires_grad(self.dec_l, True)
-        outputs_l = None
+
         if x_l is not None:
             words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
             words = self.proj_l(words).permute(2, 0, 1)
             l_latent = self.enc_l(words)[-1]
             outputs_l = self.dec_l(l_latent)
-        masked_l_latent = self.enc_l(masked_words)[-1]
+        else:
+            outputs_l = self.dec_l(masked_l_latent)
         av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
         combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent, av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
