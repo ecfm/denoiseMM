@@ -71,7 +71,7 @@ class Net(nn.Module):
                                                     dim=2))[-1]
         combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent, av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
-        return outputs_av, outputs_l, outputs
+        return outputs_av, outputs_l, outputs, av2l_latent, l_latent
 
 def set_requires_grad(module, val):
     for p in module.parameters():

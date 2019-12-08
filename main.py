@@ -57,7 +57,7 @@ def get_test_metrics(epoch, device, test_loader, net):
                 test_output_av_all.extend(outputs_av.tolist())
                 test_output_l_all.extend(outputs_l.tolist())
             else:
-                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=words, x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, outputs, _, _ = net(x_l=words, x_l_masked=words, x_a=covarep, x_v=facet)
                 test_output_av_all.extend(outputs_av.tolist())
                 test_output_l_all.extend(outputs_l.tolist())
                 test_output_all.extend(outputs.tolist())
@@ -230,7 +230,14 @@ def train_model(args, config_file_name, model_name):
                 loss_av.backward(retain_graph=True)
                 output_av_all.extend(outputs_av.tolist())
             else:
-                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=masked_words, x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, outputs, av2l_latent, l_latent = \
+                    net(x_l=words, x_l_masked=masked_words, x_a=covarep, x_v=facet)
+                loss_l = criterion(outputs_l, labels)
+                loss_l.backward(retain_graph=True)
+                output_l_all.extend(outputs_l.tolist())
+                loss_av = criterion(l_latent, av2l_latent)
+                loss_av.backward(retain_graph=True)
+                output_av_all.extend(outputs_av.tolist())
                 loss = criterion(outputs, labels)
                 loss.backward(retain_graph=True)
                 output_all.extend(outputs.tolist())
