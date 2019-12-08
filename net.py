@@ -69,7 +69,7 @@ class Net(nn.Module):
         av_latent_comp = self.enc_av_comp(torch.cat([self.proj_a_comp(covarep).permute(2, 0, 1),
                                                      self.proj_v_comp(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
-        combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent, av2l_latent.detach()], dim=1))
+        combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent.detach(), av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs_av, outputs_l, outputs
 

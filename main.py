@@ -200,10 +200,14 @@ def train_model(args, config_file_name, model_name):
                     net.load_state_dict(checkpoint['state'])
                     get_test_metrics(epoch, device, test_loader, net)
                     gc.best.best_epoch = epoch
-                    set_requires_grad(net.proj_l, True)
-                    set_requires_grad(net.enc_l, True)
-                    set_requires_grad(net.dec_l, True)
-                    optimizer = optim.Adam(net.parameters(),
+                    set_requires_grad(net.proj_l, False)
+                    set_requires_grad(net.enc_l, False)
+                    set_requires_grad(net.dec_l, False)
+                    set_requires_grad(net.proj_a, False)
+                    set_requires_grad(net.proj_v, False)
+                    set_requires_grad(net.enc_av2l, False)
+                    set_requires_grad(net.av2l_latent, False)
+                    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
                                            betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
             else:
                 if epoch - gc.best.best_epoch > 60:
