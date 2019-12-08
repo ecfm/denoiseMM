@@ -32,11 +32,14 @@ class Net(nn.Module):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
+        set_requires_grad(self.proj_l, train_l)
+        set_requires_grad(self.enc_l, train_l)
+        set_requires_grad(self.dec_l, train_l)
+        words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
+        words = self.proj_l(words).permute(2, 0, 1)
+        l_latent = self.enc_l(words)[-1]
+        outputs_l = self.dec_l(l_latent)
         if train_l:
-            words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
-            words = self.proj_l(words).permute(2, 0, 1)
-            l_latent = self.enc_l(words)[-1]
-            outputs_l = self.dec_l(l_latent)
             return outputs_l
         covarep = x_a.transpose(1, 2)
         facet = x_v.transpose(1, 2)
@@ -47,10 +50,8 @@ class Net(nn.Module):
 
         av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
-        set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
-        set_requires_grad(self.dec_l, True)
-        return outputs_av
+        return outputs_av, outputs_l, l_latent, av2l_latent
 
 def set_requires_grad(module, val):
     for p in module.parameters():

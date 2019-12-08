@@ -14,9 +14,10 @@ import torch.utils.data as Data
 
 from consts import global_consts as gc
 from masked_dataset import MaskedDataset
-from net import Net
+from net import Net, set_requires_grad
 
 lambda_q = 0.15
+l_mode = True
 np.random.seed(0)
 
 output_dim_dict = {
@@ -44,12 +45,13 @@ def get_test_metrics(epoch, device, test_loader, net):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch < gc.l_epoch:
+            if l_mode:
                 outputs_l = net(x_l=words, train_l=True)
                 test_output_l_all.extend(outputs_l.tolist())
             else:
-                outputs_av = net(x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, _, _ = net(x_l=words, x_a=covarep, x_v=facet)
                 test_output_av_all.extend(outputs_av.tolist())
+                test_output_l_all.extend(outputs_l.tolist())
             test_label_all.extend(labels.tolist())
 
         best_model = False
@@ -57,13 +59,17 @@ def get_test_metrics(epoch, device, test_loader, net):
         test_mae_l = 10
         if len(test_output_l_all) > 0:
             test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
-            if test_mae_l < gc.best.min_test_mae_l:
+            if test_mae_l < gc.best.min_test_mae_l and l_mode:
+                print("best mae l!!!!!!")
                 gc.best.min_test_mae_l = test_mae_l
                 gc.best.best_epoch = epoch
                 best_model = True
         if len(test_output_av_all) > 0:
+            # import pdb
+            # pdb.set_trace()
             test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
             if test_mae_av < gc.best.min_test_mae_av:
+                print("best mae av!!!!!!")
                 gc.best.min_test_mae_av = test_mae_av
                 gc.best.best_epoch = epoch
                 best_model = True
@@ -133,7 +139,7 @@ def train_model(args, config_file_name, model_name):
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
-    l_mode = True
+    global l_mode
     for epoch in range(start_epoch, gc.config['epoch_num']):
         if epoch % 10 == 0:
             print("HPID:%d:Training Epoch %d." % (gc.HPID, epoch))
@@ -151,12 +157,21 @@ def train_model(args, config_file_name, model_name):
             }, model_path)
         else:
             if l_mode:
-                if epoch - gc.best.best_epoch > 20:
+                # TODO: if epoch - gc.best.best_epoch > 20:
+                if epoch > 5:
                     print("!!!!!!!!!!!!!!!!STOP L-mode")
                     l_mode = False
                     checkpoint = torch.load(model_path, map_location=device)
                     net.load_state_dict(checkpoint['state'])
+                    get_test_metrics(epoch, device, test_loader, net)
+                    # import pdb
+                    # pdb.set_trace()
                     gc.best.best_epoch = epoch
+                    set_requires_grad(net.proj_l, False)
+                    set_requires_grad(net.enc_l, False)
+                    set_requires_grad(net.dec_l, False)
+                    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
             else:
                 if epoch - gc.best.best_epoch > 60:
                     break
@@ -170,14 +185,14 @@ def train_model(args, config_file_name, model_name):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch < gc.l_epoch and l_mode:
+            if l_mode:
                 outputs_l = net(x_l=words, train_l=True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
                 output_l_all.extend(outputs_l.tolist())
             else:
-                outputs_av = net(x_a=covarep, x_v=facet)
-                loss_av = criterion(outputs_av, labels)
+                outputs_av, _, l_latent, av2l_latent = net(x_l=words, x_a=covarep, x_v=facet)
+                loss_av = criterion(l_latent, av2l_latent)
                 loss_av.backward(retain_graph=True)
                 output_av_all.extend(outputs_av.tolist())
             # g = make_dot(outputs, dict(net.named_parameters()))
@@ -190,6 +205,8 @@ def train_model(args, config_file_name, model_name):
         if len(output_l_all) > 0:
             eval_senti('train', 'l', output_l_all, label_all)
         if len(output_av_all) > 0:
+            # import pdb
+            # pdb.set_trace()
             eval_senti('train', 'av', output_av_all, label_all)
 
     maes_av = []
