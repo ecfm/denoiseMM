@@ -16,6 +16,8 @@ class Net(nn.Module):
         self.proj_l = nn.Conv1d(gc.dim_l, gc.config['d_l'], kernel_size=1, padding=0, bias=False)
         self.proj_a = nn.Conv1d(gc.dim_a, gc.config['d_a'], kernel_size=1, padding=0, bias=False)
         self.proj_v = nn.Conv1d(gc.dim_v, gc.config['d_v'], kernel_size=1, padding=0, bias=False)
+        self.proj_a_comp = nn.Conv1d(gc.dim_a, gc.config['d_a'], kernel_size=1, padding=0, bias=False)
+        self.proj_v_comp = nn.Conv1d(gc.dim_v, gc.config['d_v'], kernel_size=1, padding=0, bias=False)
 
         self.enc_l = TransformerEncoder(embed_dim=gc.config['d_l'],
                                    num_heads=gc.config['n_head_l'],
@@ -46,10 +48,10 @@ class Net(nn.Module):
             return outputs_l
         covarep = x_a.transpose(1, 2)
         facet = x_v.transpose(1, 2)
-        covarep = self.proj_a(covarep).permute(2, 0, 1)
-        facet = self.proj_v(facet).permute(2, 0, 1)
 
-        av2l_intermediate = self.enc_av2l(torch.cat([covarep, facet], dim=2))[-1]
+        av2l_intermediate = self.enc_av2l(torch.cat([self.proj_a(covarep).permute(2, 0, 1),
+                                                     self.proj_v(facet).permute(2, 0, 1)],
+                                                    dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
         outputs_av = self.dec_l(av2l_latent)
 
@@ -57,14 +59,14 @@ class Net(nn.Module):
             return outputs_av, outputs_l, av2l_latent, l_latent
 
         masked_words = F.dropout(x_l_masked.transpose(1, 2), p=0.25, training=self.training)
-        covarep = x_a.transpose(1, 2)
-        facet = x_v.transpose(1, 2)
 
         # Project the textual/visual/audio features
         masked_words = self.proj_l(masked_words).permute(2, 0, 1)
         masked_l_latent = self.enc_l(masked_words)[-1]
 
-        av_latent_comp = self.enc_av_comp(torch.cat([covarep, facet], dim=2))[-1]
+        av_latent_comp = self.enc_av_comp(torch.cat([self.proj_a_comp(covarep).permute(2, 0, 1),
+                                                     self.proj_v_comp(facet).permute(2, 0, 1)],
+                                                    dim=2))[-1]
         combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent, av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs_av, outputs_l, outputs

@@ -53,7 +53,7 @@ def get_test_metrics(epoch, device, test_loader, net):
                 outputs_l = net(x_l=words, train_l=True)
                 test_output_l_all.extend(outputs_l.tolist())
             elif av_mode:
-                outputs_av, outputs_l, _, _ = net(x_l=words, x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, _, _ = net(x_l=words, x_a=covarep, x_v=facet, train_av=True)
                 test_output_av_all.extend(outputs_av.tolist())
                 test_output_l_all.extend(outputs_l.tolist())
             else:
