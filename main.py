@@ -14,9 +14,12 @@ import torch.utils.data as Data
 
 from consts import global_consts as gc
 from masked_dataset import MaskedDataset
-from net import Net
+from net import Net, set_requires_grad
 
 lambda_q = 0.15
+l_mode = True
+av_mode = False
+
 np.random.seed(0)
 
 output_dim_dict = {
@@ -46,26 +49,48 @@ def get_test_metrics(epoch, device, test_loader, net):
                                                       inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-
-            outputs_av, outputs_l, outputs = net(None, words, covarep, facet)
-            test_output_l_all.extend(outputs_l.tolist())
-            test_output_av_all.extend(outputs_av.tolist())
-            test_output_all.extend(outputs.tolist())
+            if l_mode:
+                outputs_l = net(x_l=words, train_l=True)
+                test_output_l_all.extend(outputs_l.tolist())
+            elif av_mode:
+                outputs_av, outputs_l, _, _ = net(x_l=words, x_a=covarep, x_v=facet)
+                test_output_av_all.extend(outputs_av.tolist())
+                test_output_l_all.extend(outputs_l.tolist())
+            else:
+                outputs_av, outputs_l, outputs = net(x_l=words, x_a=covarep, x_v=facet)
+                test_output_av_all.extend(outputs_av.tolist())
+                test_output_l_all.extend(outputs_l.tolist())
+                test_output_all.extend(outputs.tolist())
             test_label_all.extend(labels.tolist())
 
         best_model = False
-        test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
-        test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
-        test_mae = eval_senti('test', 'lav', test_output_all, test_label_all)
-
-        if len(test_label_all) > 0:
-            if test_mae_l < gc.best.min_test_mae_l:
+        test_mae_av = 10
+        test_mae_l = 10
+        if len(test_output_l_all) > 0:
+            test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
+            if test_mae_l < gc.best.min_test_mae_l and l_mode:
+                print("best mae l!!!!!!")
                 gc.best.min_test_mae_l = test_mae_l
+                if l_mode:
+                    gc.best.best_epoch = epoch
+                    best_model = True
+        if len(test_output_av_all) > 0:
+            # import pdb
+            # pdb.set_trace()
+            test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
             if test_mae_av < gc.best.min_test_mae_av:
+                print("best mae av!!!!!!")
                 gc.best.min_test_mae_av = test_mae_av
+                if av_mode:
+                    gc.best.best_epoch = epoch
+                    best_model = True
+        if len(test_output_all) > 0:
+            # import pdb
+            # pdb.set_trace()
+            test_mae = eval_senti('test', 'lav', test_output_all, test_label_all)
             if test_mae < gc.best.min_test_mae:
                 gc.best.min_test_mae = test_mae
-                gc.best.best_epoch = epoch + 1
+                gc.best.best_epoch = epoch
                 best_model = True
         return best_model, test_mae_av, test_mae_l, test_mae
 
@@ -133,8 +158,8 @@ def train_model(args, config_file_name, model_name):
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
-
-    for epoch in range(start_epoch, gc.config['epoch_num']):
+    global l_mode, av_mode
+    for epoch in range(start_epoch, 500):
         if epoch % 10 == 0:
             print("HPID:%d:Training Epoch %d." % (gc.HPID, epoch))
         if epoch % 100 == 0:
@@ -150,8 +175,38 @@ def train_model(args, config_file_name, model_name):
                 'best': gc.best
             }, model_path)
         else:
-            if epoch - gc.best.best_epoch > 80:
-                break
+            if l_mode:
+                if epoch - gc.best.best_epoch > 20:
+                    print("!!!!!!!!!!!!!!!!STOP L-mode")
+                    l_mode = False
+                    av_mode = True
+                    checkpoint = torch.load(model_path, map_location=device)
+                    net.load_state_dict(checkpoint['state'])
+                    get_test_metrics(epoch, device, test_loader, net)
+                    # import pdb
+                    # pdb.set_trace()
+                    gc.best.best_epoch = epoch
+                    set_requires_grad(net.proj_l, False)
+                    set_requires_grad(net.enc_l, False)
+                    set_requires_grad(net.dec_l, False)
+                    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+            elif av_mode:
+                if epoch - gc.best.best_epoch > 60:
+                    print("!!!!!!!!!!!!!!!!STOP AV-mode")
+                    av_mode = False
+                    checkpoint = torch.load(model_path, map_location=device)
+                    net.load_state_dict(checkpoint['state'])
+                    get_test_metrics(epoch, device, test_loader, net)
+                    gc.best.best_epoch = epoch
+                    set_requires_grad(net.proj_l, True)
+                    set_requires_grad(net.enc_l, True)
+                    set_requires_grad(net.dec_l, True)
+                    optimizer = optim.Adam(net.parameters(),
+                                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+            else:
+                if epoch - gc.best.best_epoch > 60:
+                    break
         label_all = []
         output_l_all = []
         output_av_all = []
@@ -163,41 +218,37 @@ def train_model(args, config_file_name, model_name):
                 device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            if epoch % 15 < 4:
-                outputs_l = net(words, masked_words, covarep, facet, train_l=True)
+            if l_mode:
+                outputs_l = net(x_l=words, train_l=True)
                 loss_l = criterion(outputs_l, labels)
                 loss_l.backward(retain_graph=True)
-                optimizer.step()
-            elif epoch % 15 < 10:
-                outputs_av = net(words, masked_words, covarep, facet, train_av=True)
-                loss_av = criterion(outputs_av, labels)
-                loss_av.backward(retain_graph=True)
-            else:
-                outputs_av, outputs_l, outputs = net(words, masked_words, covarep, facet)
-                loss_av = criterion(outputs_av, labels)
-                loss_av.backward(retain_graph=True)
-                loss_lav = criterion(outputs, labels)
-                loss_lav.backward(retain_graph=True)
-                # g = make_dot(outputs, dict(net.named_parameters()))
-                # g.render('model/outputs_detach', view=True)
-
-                optimizer.step()
-
                 output_l_all.extend(outputs_l.tolist())
+            elif av_mode:
+                outputs_av, _, l_latent, av2l_latent = net(x_l=words, x_a=covarep, x_v=facet, train_av=True)
+                loss_av = criterion(l_latent, av2l_latent)
+                loss_av.backward(retain_graph=True)
                 output_av_all.extend(outputs_av.tolist())
+            else:
+                outputs_av, outputs_l, outputs = net(x_l=words, x_l_maksed=masked_words, x_a=covarep, x_v=facet)
+                loss = criterion(outputs, labels)
+                loss.backward(retain_graph=True)
                 output_all.extend(outputs.tolist())
-                label_all.extend(labels.tolist())
-                del loss_av, outputs_av, outputs_l
-                if i % 20 == 19:
-                    torch.cuda.empty_cache()
+            # g = make_dot(outputs, dict(net.named_parameters()))
+            # g.render('model/outputs_detach', view=True)
 
-        eval_senti('train', 'l', output_l_all, label_all)
-        eval_senti('train', 'av', output_av_all, label_all)
-        eval_senti('train', 'lav', output_all, label_all)
+            optimizer.step()
+            label_all.extend(labels.tolist())
+            if i % 20 == 19:
+                torch.cuda.empty_cache()
+        if len(output_l_all) > 0:
+            eval_senti('train', 'l', output_l_all, label_all)
+        if len(output_av_all) > 0:
+            eval_senti('train', 'av', output_av_all, label_all)
+        if len(output_all) > 0:
+            eval_senti('train', 'lav', output_all, label_all)
 
     maes_av = []
     maes_l = []
-    maes = []
     for mask_ratio in [0.2, 0.4, 0.6]:
         ds = MaskedDataset
         test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
@@ -212,12 +263,10 @@ def train_model(args, config_file_name, model_name):
         _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
         maes_av.append(mae_av)
         maes_l.append(mae_l)
-        maes.append(mae)
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
     with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
         f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
         f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
-        f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
 
 
 
