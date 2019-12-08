@@ -53,7 +53,9 @@ class Net(nn.Module):
                                                      self.proj_v(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
+        set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
+        set_requires_grad(self.dec_l, False)
 
         if train_av:
             return outputs_av, outputs_l, av2l_latent, l_latent

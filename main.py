@@ -57,7 +57,7 @@ def get_test_metrics(epoch, device, test_loader, net):
                 test_output_av_all.extend(outputs_av.tolist())
                 test_output_l_all.extend(outputs_l.tolist())
             else:
-                outputs_av, outputs_l, outputs = net(x_l=words, x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=words, x_a=covarep, x_v=facet)
                 test_output_av_all.extend(outputs_av.tolist())
                 test_output_l_all.extend(outputs_l.tolist())
                 test_output_all.extend(outputs.tolist())
@@ -230,7 +230,7 @@ def train_model(args, config_file_name, model_name):
                 loss_av.backward(retain_graph=True)
                 output_av_all.extend(outputs_av.tolist())
             else:
-                outputs_av, outputs_l, outputs = net(x_l=words, x_l_maksed=masked_words, x_a=covarep, x_v=facet)
+                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=masked_words, x_a=covarep, x_v=facet)
                 loss = criterion(outputs, labels)
                 loss.backward(retain_graph=True)
                 output_all.extend(outputs.tolist())
@@ -247,30 +247,29 @@ def train_model(args, config_file_name, model_name):
             eval_senti('train', 'av', output_av_all, label_all)
         if len(output_all) > 0:
             eval_senti('train', 'lav', output_all, label_all)
-
-    maes_av = []
-    maes_l = []
-    maes = []
-    for mask_ratio in [0.2, 0.4, 0.6]:
-        ds = MaskedDataset
-        test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
-        test_loader = Data.DataLoader(
-            dataset=test_dataset,
-            batch_size=100,
-            shuffle=False,
-            num_workers=1,
-        )
-        checkpoint = torch.load(model_path, map_location=device)
-        net.load_state_dict(checkpoint['state'])
-        _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
-        maes_av.append(mae_av)
-        maes_l.append(mae_l)
-        maes.append(mae)
-    print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
-    with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
-        f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
-        f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
-        f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
+    # maes_av = []
+    # maes_l = []
+    # maes = []
+    # checkpoint = torch.load(model_path, map_location=device)
+    # net.load_state_dict(checkpoint['state'])
+    # for mask_ratio in [0.2, 0.4, 0.6]:
+    #     ds = MaskedDataset
+    #     test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
+    #     test_loader = Data.DataLoader(
+    #         dataset=test_dataset,
+    #         batch_size=100,
+    #         shuffle=False,
+    #         num_workers=1,
+    #     )
+    #     _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
+    #     maes_av.append(mae_av)
+    #     maes_l.append(mae_l)
+    #     maes.append(mae)
+    # print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
+    # with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
+    #     f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
+    #     f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
+    #     f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
 
 
 
