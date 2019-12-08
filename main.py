@@ -157,8 +157,7 @@ def train_model(args, config_file_name, model_name):
             }, model_path)
         else:
             if l_mode:
-                # TODO: if epoch - gc.best.best_epoch > 20:
-                if epoch > 5:
+                if epoch - gc.best.best_epoch > 20:
                     print("!!!!!!!!!!!!!!!!STOP L-mode")
                     l_mode = False
                     checkpoint = torch.load(model_path, map_location=device)
