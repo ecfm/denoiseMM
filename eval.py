@@ -97,10 +97,8 @@ if __name__ == "__main__":
             _, mae, mae_l = get_test_metrics(-1, device, test_loader, net)
             maes.append(mae)
             maes_l.append(mae_l)
-        print("%s, l, %f,%f,%f,%f" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
-        print("%s, lav, %f,%f,%f,%f" % (config_name, gc.best.min_test_mae_av, maes[0], maes[1], maes[2]))
+        print("%s, lav, %f,%f,%f,%f" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
         with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
-            f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
-            f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes[0], maes[1], maes[2]))
+            f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
 
     # logSummary()
