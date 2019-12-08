@@ -66,6 +66,7 @@ def get_test_metrics(epoch, device, test_loader, net):
         best_model = False
         test_mae_av = 10
         test_mae_l = 10
+        test_mae = 10
         if len(test_output_l_all) > 0:
             test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
             if test_mae_l < gc.best.min_test_mae_l and l_mode:
@@ -249,6 +250,7 @@ def train_model(args, config_file_name, model_name):
 
     maes_av = []
     maes_l = []
+    maes = []
     for mask_ratio in [0.2, 0.4, 0.6]:
         ds = MaskedDataset
         test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
@@ -263,10 +265,12 @@ def train_model(args, config_file_name, model_name):
         _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
         maes_av.append(mae_av)
         maes_l.append(mae_l)
+        maes.append(mae)
     print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
     with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
         f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
         f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
+        f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
 
 
 
