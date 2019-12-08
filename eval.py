@@ -19,7 +19,7 @@ output_dim_dict = {
     'iemocap': 8
 }
 
-def eval_senti(split, mod, output_all, label_all):
+def eval_senti(output_all, label_all):
     truth = np.array(label_all)
     preds = np.array(output_all)
     mae = np.mean(np.abs(truth - preds))
@@ -64,9 +64,9 @@ def get_test_metrics(epoch, device, test_loader, net):
             test_label_all.extend(labels.tolist())
 
         best_model = False
-        test_mae_av = eval_senti('test', 'l', test_output_l_all, test_label_all)
-        test_mae_l = eval_senti('test', 'av', test_output_av_all, test_label_all)
-        test_mae = eval_senti('test', 'lav', test_output_all, test_label_all)
+        test_mae_av = eval_senti(test_output_av_all, test_label_all)
+        test_mae_l = eval_senti(test_output_l_all, test_label_all)
+        test_mae = eval_senti(test_output_all, test_label_all)
         return best_model, test_mae_av, test_mae_l, test_mae
 
 
