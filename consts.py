@@ -4,23 +4,20 @@ from metrics import Best
 class global_consts():
     single_gpu = False
     load_model = False
-    SDK_PATH = "../../../CMU-MultimodalSDK"
+    SDK_PATH = "/work/chengfem/CMU-MultimodalSDK"
 
     save_grad = False
 
-    dataset = "mosei_senti"
-    data_path = None
-    if dataset == "mosi_short":
-        data_path = "../../MOSI/"
-    else:
-        data_path = "../../data/"
+    dataset = "mosei_senti_2E-01_dirty_train_data"
+    data_path = "/work/chengfem/data/"
+    # data_path = "/Users/cask/MultiComp/data/"
     model_path = "model/"
 
     log_path = None
 
     HPID = -1
 
-    batch_size = 20
+    batch_size = 256
 
     padding_len = -1
 
@@ -62,8 +59,8 @@ class global_consts():
     best = Best()
 
     dim_l = 300
-    dim_a = 5
-    dim_v = 20
+    dim_a = 74
+    dim_v = 35
 
     def logParameters(self):
         print( "Hyperparameters:")

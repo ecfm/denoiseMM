@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import signal
@@ -5,30 +6,97 @@ import sys
 import time
 from collections import OrderedDict
 
-import h5py
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as Data
-from sklearn.metrics import accuracy_score, f1_score
 
 from consts import global_consts as gc
-from model import Net
-from adversary import Adv
+from masked_dataset import MaskedDataset
+from net import Net, set_requires_grad
 
 lambda_q = 0.15
+l_mode = True
+av_mode = False
 
+np.random.seed(0)
 
-def stopTraining(signum, frame):
+output_dim_dict = {
+    'mosi': 1,
+    'mosei_senti': 1,
+    'iemocap': 8
+}
+
+def stopTraining():
     global savedStdout
     logSummary()
     sys.stdout = savedStdout
     sys.exit()
 
+def get_test_metrics(epoch, device, test_loader, net):
+    with torch.no_grad():
+        print("Epoch #%d results:" % epoch)
+        test_label_all = []
+        test_output_l_all = []
+        test_output_av_all = []
+        test_output_all = []
 
-def train_model(config_file_name, model_name):
-    save_epochs = [1, 10, 50, 100, 150, 200, 500, 700, 999]
+
+        for data in test_loader:
+            words, covarep, facet, inputLen, labels = data
+            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(device), \
+                                                      inputLen.to(device), labels.to(device)
+            if covarep.size()[0] == 1:
+                continue
+            if l_mode:
+                outputs_l = net(x_l=words, train_l=True)
+                test_output_l_all.extend(outputs_l.tolist())
+            elif av_mode:
+                outputs_av, outputs_l, _, _ = net(x_l=words, x_a=covarep, x_v=facet, train_av=True)
+                test_output_av_all.extend(outputs_av.tolist())
+                test_output_l_all.extend(outputs_l.tolist())
+            else:
+                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=words, x_a=covarep, x_v=facet)
+                test_output_av_all.extend(outputs_av.tolist())
+                test_output_l_all.extend(outputs_l.tolist())
+                test_output_all.extend(outputs.tolist())
+            test_label_all.extend(labels.tolist())
+
+        best_model = False
+        test_mae_av = 10
+        test_mae_l = 10
+        test_mae = 10
+        if len(test_output_l_all) > 0:
+            test_mae_l = eval_senti('test', 'l', test_output_l_all, test_label_all)
+            if test_mae_l < gc.best.min_test_mae_l and l_mode:
+                print("best mae l!!!!!!")
+                gc.best.min_test_mae_l = test_mae_l
+                if l_mode:
+                    gc.best.best_epoch = epoch
+                    best_model = True
+        if len(test_output_av_all) > 0:
+            # import pdb
+            # pdb.set_trace()
+            test_mae_av = eval_senti('test', 'av', test_output_av_all, test_label_all)
+            if test_mae_av < gc.best.min_test_mae_av:
+                print("best mae av!!!!!!")
+                gc.best.min_test_mae_av = test_mae_av
+                if av_mode:
+                    gc.best.best_epoch = epoch
+                    best_model = True
+        if len(test_output_all) > 0:
+            # import pdb
+            # pdb.set_trace()
+            test_mae = eval_senti('test', 'lav', test_output_all, test_label_all)
+            if test_mae < gc.best.min_test_mae:
+                gc.best.min_test_mae = test_mae
+                gc.best.best_epoch = epoch
+                best_model = True
+        return best_model, test_mae_av, test_mae_l, test_mae
+
+
+def train_model(args, config_file_name, model_name):
     config_name = ''
     if config_file_name:
         config_name = os.path.splitext(os.path.basename(config_file_name))[0]
@@ -78,12 +146,10 @@ def train_model(config_file_name, model_name):
     gc.device = device
     print("running device: ", device)
     gc().logParameters()
-
+    # hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_dataset.__len__()
     net = Net()
-    print(net)
     net.to(device)
-    adv = Adv()
-    adv.to(device)
+    print(net)
 
     if gc.dataset == "iemocap":
         criterion = nn.CrossEntropyLoss()
@@ -91,196 +157,123 @@ def train_model(config_file_name, model_name):
         criterion = nn.MSELoss()
 
     optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
-    adv_optimizer = optim.Adam(net.parameters(), betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
     start_epoch = 0
     model_path = os.path.join(gc.model_path, gc.dataset + '_' + model_name + '.tar')
-    if gc.load_model and os.path.exists(model_path):
-        checkpoint = torch.load(model_path, map_location=device)
-        net.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch']
-        gc.best = checkpoint['best']
-
-    if gc.dataset == 'mosei_emo':
-        eval_method = eval_mosei_emo
-    else:
-        eval_method = eval_senti
-
-    running_loss = 0.0
-    for epoch in range(start_epoch, gc.config['epoch_num']):
+    global l_mode, av_mode
+    for epoch in range(start_epoch, 500):
         if epoch % 10 == 0:
             print("HPID:%d:Training Epoch %d." % (gc.HPID, epoch))
-        if gc.save_grad and epoch in save_epochs:
-            grad_dict = {}
-            update_dict = {}
         if epoch % 100 == 0:
             logSummary()
         if gc.lr_decay and (epoch == 75 or epoch == 200):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = param_group['lr'] / 2
-        with torch.no_grad():
-            print("Epoch #%d results:" % epoch)
-            test_label_all = []
-            test_output_all = []
-            for data in test_loader:
-                words, covarep, facet, inputLen, labels = data
-                if covarep.size()[0] == 1:
-                    continue
-                words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                    device), inputLen.to(device), labels.to(device)
-                outputs = net(words, covarep, facet, inputLen)
-
-                test_output_all.extend(outputs.tolist())
-                test_label_all.extend(labels.tolist())
-
-            best_model = False
-
-            if gc.dataset == 'mosei_emo':
-                test_mae = eval_mosei_emo('test', test_output_all, test_label_all)
-                for cls in gc.best.mosei_cls:
-                    if test_mae[cls] < gc.best.mosei_emo_best_mae[cls]:
-                        gc.best.mosei_emo_best_mae[cls] = test_mae[cls]
-                        gc.best.best_epoch = epoch + 1
-                        best_model = True
+        best_model, _, _, _ = get_test_metrics(epoch, device, test_loader, net)
+        if best_model:
+            torch.save({
+                'epoch': epoch,
+                'state': net.state_dict(),
+                'best': gc.best
+            }, model_path)
+        else:
+            if l_mode:
+                if epoch - gc.best.best_epoch > 20:
+                    print("!!!!!!!!!!!!!!!!STOP L-mode")
+                    l_mode = False
+                    av_mode = True
+                    checkpoint = torch.load(model_path, map_location=device)
+                    net.load_state_dict(checkpoint['state'])
+                    get_test_metrics(epoch, device, test_loader, net)
+                    # import pdb
+                    # pdb.set_trace()
+                    gc.best.best_epoch = epoch
+                    set_requires_grad(net.proj_l, False)
+                    set_requires_grad(net.enc_l, False)
+                    set_requires_grad(net.dec_l, False)
+                    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
+            elif av_mode:
+                if epoch - gc.best.best_epoch > 60:
+                    print("!!!!!!!!!!!!!!!!STOP AV-mode")
+                    av_mode = False
+                    checkpoint = torch.load(model_path, map_location=device)
+                    net.load_state_dict(checkpoint['state'])
+                    get_test_metrics(epoch, device, test_loader, net)
+                    gc.best.best_epoch = epoch
+                    set_requires_grad(net.proj_l, False)
+                    set_requires_grad(net.enc_l, False)
+                    set_requires_grad(net.dec_l, False)
+                    set_requires_grad(net.proj_a, False)
+                    set_requires_grad(net.proj_v, False)
+                    set_requires_grad(net.enc_av2l, False)
+                    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()),
+                                           betas=(0.9, 0.98), eps=1e-09, lr=gc.config['lr'])
             else:
-                test_mae, test_cor, test_acc, test_acc_7, test_acc_5, test_f1_mfn, test_f1_raven, test_f1_muit, \
-                test_ex_zero_acc = eval_senti('test', test_output_all, test_label_all)
-                if len(test_output_all) > 0:
-                    if test_mae < gc.best.min_test_mae:
-                        gc.best.min_test_mae = test_mae
-                        gc.best.best_epoch = epoch + 1
-                        best_model = True
-                    if test_cor > gc.best.max_test_cor:
-                        gc.best.max_test_cor = test_cor
-                    if test_acc > gc.best.max_test_acc:
-                        gc.best.max_test_acc = test_acc
-                    if test_ex_zero_acc > gc.best.max_test_ex_zero_acc:
-                        gc.best.max_test_ex_zero_acc = test_ex_zero_acc
-                    if test_acc_5 > gc.best.max_test_acc_5:
-                        gc.best.max_test_acc_5 = test_acc_5
-                    if test_acc_7 > gc.best.max_test_acc_7:
-                        gc.best.max_test_acc_7 = test_acc_7
-                    if test_f1_mfn > gc.best.max_test_f1_mfn:
-                        gc.best.max_test_f1_mfn = test_f1_mfn
-                    if test_f1_raven > gc.best.max_test_f1_raven:
-                        gc.best.max_test_f1_raven = test_f1_raven
-                    if test_f1_muit > gc.best.max_test_f1_muit:
-                        gc.best.max_test_f1_muit = test_f1_muit
-            if best_model:
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': net.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'best': gc.best
-                }, model_path)
-            else:
-                if epoch - gc.best.best_epoch > 10:
+                if epoch - gc.best.best_epoch > 60:
                     break
-
-        tot_num = 0
-        tot_err = 0
-        tot_right = 0
         label_all = []
+        output_l_all = []
+        output_av_all = []
         output_all = []
-        max_i = 0
         for i, data in enumerate(train_loader):
-            batch_update_dict = {}
-            max_i = i
-            words, covarep, facet, inputLen, labels = data
+            optimizer.zero_grad()
+            words, covarep, facet, masked_words, inputLen, labels = data
+            words, covarep, facet, masked_words, inputLen, labels = words.to(device), covarep.to(device), facet.to(
+                device), masked_words.to(device), inputLen.to(device), labels.to(device)
             if covarep.size()[0] == 1:
                 continue
-            words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                device), inputLen.to(device), labels.to(device)
-            optimizer.zero_grad()
-            adv_optimizer.zero_grad()
+            if l_mode:
+                outputs_l = net(x_l=words, train_l=True)
+                loss_l = criterion(outputs_l, labels)
+                loss_l.backward(retain_graph=True)
+                output_l_all.extend(outputs_l.tolist())
+            elif av_mode:
+                outputs_av, _, l_latent, av2l_latent = net(x_l=words, x_a=covarep, x_v=facet, train_av=True)
+                loss_av = criterion(l_latent, av2l_latent)
+                loss_av.backward(retain_graph=True)
+                output_av_all.extend(outputs_av.tolist())
+            else:
+                outputs_av, outputs_l, outputs = net(x_l=words, x_l_masked=masked_words, x_a=covarep, x_v=facet)
+                loss = criterion(outputs, labels)
+                loss.backward(retain_graph=True)
+                output_all.extend(outputs.tolist())
+            # g = make_dot(outputs, dict(net.named_parameters()))
+            # g.render('model/outputs_detach', view=True)
 
-            outputs = net(words, covarep, facet, inputLen)
-
-            w_output = adv(words)
-
-            # adv_copy = type(adv)()
-            # adv_copy.load_state_dict(adv.state_dict())
-            # adv_copy.to(device)
-            net_copy = type(net)()
-            net_copy.load_state_dict(net.state_dict())
-            net_copy.to(device)
-
-            w_loss = criterion(w_output, labels)
-            w_loss_item = torch.mean(w_loss).item()
-            w_loss *= lambda_q
-            w_loss.backward()
-
-            # # copying models
-            # c_output = adv_copy(words)
-            # f_output = net_copy(words, covarep, facet, inputLen)
-            # entropy_c_output = torch.mean(c_output * torch.log(c_output))
-            # entropy_f_output = torch.mean(f_output * torch.log(f_output))
-            #
-            # c_f_loss = (entropy_f_output - entropy_c_output)
-            # c_f_loss_item = torch.mean(c_f_loss).item()
-            # c_f_loss *= lambda_h
-            # c_f_loss.backward()
-
-            output_all.extend(outputs.tolist())
-            label_all.extend(labels.tolist())
-            if gc.dataset != "iemocap" or gc.dataset != "pom" or gc.dataset != "mosei_emo":
-                err = torch.sum(torch.abs(outputs - labels))
-                tot_right += torch.sum(torch.eq(torch.sign(labels), torch.sign(outputs)))
-                tot_err += err
-                tot_num += covarep.size()[0]
-            if gc.dataset == 'iemocap':
-                outputs = outputs.view(-1, 2)
-                labels = labels.view(-1)
-            loss = criterion(outputs, labels)
-            # print("loss=%.4f, w_loss_item=%.4f, c_f_loss_item=%.4f" % (loss.item(), w_loss_item, c_f_loss_item))
-            loss.backward()
-            # torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=gc.config['max_grad'], norm_type=inf)
-            if gc.save_grad and epoch in save_epochs:
-                for name, param in net.named_parameters():
-                    if param.grad is None:
-                        continue
-                    try:
-                        if i == 0:
-                            grad_dict[name] = param.grad.detach().cpu().numpy()
-                        else:
-                            grad_dict[name] = grad_dict[name] + np.abs(param.grad.detach().cpu().numpy())
-                        assert (name not in batch_update_dict)
-                        batch_update_dict[name] = param.data.detach().cpu().numpy()
-                    except:
-                        import pdb
-                        pdb.set_trace()
             optimizer.step()
-            adv_optimizer.step()
-            if gc.save_grad and epoch in save_epochs:
-                for name, param in net.named_parameters():
-                    if param.grad is None:
-                        continue
-                    if i == 0:
-                        update_dict[name] = np.abs(batch_update_dict[name] - param.data.detach().cpu().numpy())
-                    else:
-                        update_dict[name] += np.abs(batch_update_dict[name] - param.data.detach().cpu().numpy())
-            running_loss += loss.item()
-            del loss
-            del outputs
+            label_all.extend(labels.tolist())
             if i % 20 == 19:
                 torch.cuda.empty_cache()
-            if i % 200 == 199:
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 50))
-                running_loss = 0.0
+        if len(output_l_all) > 0:
+            eval_senti('train', 'l', output_l_all, label_all)
+        if len(output_av_all) > 0:
+            eval_senti('train', 'av', output_av_all, label_all)
+        if len(output_all) > 0:
+            eval_senti('train', 'lav', output_all, label_all)
+    # maes_av = []
+    # maes_l = []
+    # maes = []
+    # checkpoint = torch.load(model_path, map_location=device)
+    # net.load_state_dict(checkpoint['state'])
+    # for mask_ratio in [0.2, 0.4, 0.6]:
+    #     ds = MaskedDataset
+    #     test_dataset = ds(gc.data_path, 'mosei_senti_%.0E_mask_data.pkl' % mask_ratio, cls="test")
+    #     test_loader = Data.DataLoader(
+    #         dataset=test_dataset,
+    #         batch_size=100,
+    #         shuffle=False,
+    #         num_workers=1,
+    #     )
+    #     _, mae_av, mae_l, mae = get_test_metrics(-1, device, test_loader, net)
+    #     maes_av.append(mae_av)
+    #     maes_l.append(mae_l)
+    #     maes.append(mae)
+    # print("mask_ratio=[0, 0.2, 0.4, 0.6], maes:")
+    # with open(os.path.join(gc.model_path, config_name + "_results.csv"), "w") as f:
+    #     f.write("%s, l, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_l, maes_l[0], maes_l[1], maes_l[2]))
+    #     f.write("%s, av, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae_av, maes_av[0], maes_av[1], maes_av[2]))
+    #     f.write("%s, lav, %f,%f,%f,%f\n" % (config_name, gc.best.min_test_mae, maes[0], maes[1], maes[2]))
 
-        eval_method('train', output_all, label_all)
-
-        if gc.save_grad and epoch in save_epochs:
-            grad_f = h5py.File(os.path.join(gc.model_path, '%s_grad_%s_%d.hdf5' % (gc.dataset, config_name, epoch)))
-            update_f = h5py.File(os.path.join(gc.model_path, '%s_update_%s_%d.hdf5' % (gc.dataset, config_name, epoch)))
-            for name in grad_dict.keys():
-                grad_avg = grad_dict[name] / (max_i + 1)
-                grad_f.create_dataset(name, data=grad_avg)
-                update_avg = update_dict[name] / (max_i + 1)
-                update_f.create_dataset(name, data=update_avg)
-            grad_f.close()
-            update_f.close()
 
 
 def eval_mosei_emo(split, output_all, label_all):
@@ -305,36 +298,28 @@ def multiclass_acc(preds, truths):
     return np.sum(np.round(preds) == np.round(truths)) / float(len(truths))
 
 
-def eval_senti(split, output_all, label_all):
+def eval_senti(split, mod, output_all, label_all):
     truth = np.array(label_all)
     preds = np.array(output_all)
     mae = np.mean(np.abs(truth - preds))
-    acc = accuracy_score(truth >= 0, preds >= 0)
-    corr = np.corrcoef(preds, truth)[0][1]
-    non_zeros = np.array([i for i, e in enumerate(truth) if e != 0])
-
-    preds_a7 = np.clip(preds, a_min=-3., a_max=3.)
-    truth_a7 = np.clip(truth, a_min=-3., a_max=3.)
-    preds_a5 = np.clip(preds, a_min=-2., a_max=2.)
-    truth_a5 = np.clip(truth, a_min=-2., a_max=2.)
-    acc_7 = multiclass_acc(preds_a7, truth_a7)
-    acc_5 = multiclass_acc(preds_a5, truth_a5)
-    f1_mfn = f1_score(np.round(truth), np.round(preds), average="weighted")
-    f1_raven = f1_score(truth >= 0, preds >= 0, average="weighted")
-    f1_muit = f1_score((preds[non_zeros] > 0), (truth[non_zeros] > 0), average='weighted')
-    binary_truth = (truth[non_zeros] > 0)
-    binary_preds = (preds[non_zeros] > 0)
-    ex_zero_acc = accuracy_score(binary_truth, binary_preds)
-    print("\t%s mean error: %f" % (split, mae))
-    print("\t%s correlation coefficient: %f" % (split, corr))
-    print("\t%s accuracy: %f" % (split, acc))
-    print("\t%s mult_acc_7: %f" % (split, acc_7))
-    print("\t%s mult_acc_5: %f" % (split, acc_5))
-    print("\t%s F1 MFN: %f " % (split, f1_mfn))
-    print("\t%s F1 RAVEN: %f " % (split, f1_raven))
-    print("\t%s F1 MuIT: %f " % (split, f1_muit))
-    print("\t%s exclude zero accuracy: %f" % (split, ex_zero_acc))
-    return mae, corr, acc, acc_7, acc_5, f1_mfn, f1_raven, f1_muit, ex_zero_acc
+    # acc = accuracy_score(truth >= 0, preds >= 0)
+    # corr = np.corrcoef(preds, truth)[0][1]
+    # non_zeros = np.array([i for i, e in enumerate(truth) if e != 0])
+    #
+    # preds_a7 = np.clip(preds, a_min=-3., a_max=3.)
+    # truth_a7 = np.clip(truth, a_min=-3., a_max=3.)
+    # preds_a5 = np.clip(preds, a_min=-2., a_max=2.)
+    # truth_a5 = np.clip(truth, a_min=-2., a_max=2.)
+    # acc_7 = multiclass_acc(preds_a7, truth_a7)
+    # acc_5 = multiclass_acc(preds_a5, truth_a5)
+    # f1_mfn = f1_score(np.round(truth), np.round(preds), average="weighted")
+    # f1_raven = f1_score(truth >= 0, preds >= 0, average="weighted")
+    # f1_muit = f1_score((preds[non_zeros] > 0), (truth[non_zeros] > 0), average='weighted')
+    # binary_truth = (truth[non_zeros] > 0)
+    # binary_preds = (preds[non_zeros] > 0)
+    # ex_zero_acc = accuracy_score(binary_truth, binary_preds)
+    print("\t%s mae_%s : %f" % (split, mod, mae))
+    return mae
 
 
 def logSummary():
@@ -369,15 +354,82 @@ def logSummary():
 if __name__ == "__main__":
     start_time = time.time()
     print('Start time: ' + time.strftime("%H:%M:%S", time.gmtime(start_time)))
-    config_file_name = ''
-    if len(sys.argv) > 1:
-        config_file_name = sys.argv[1]
-        gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
-    if len(sys.argv) > 2:
-        model_name = sys.argv[2]
-    else:
-        model_name = None
+
+    parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
+    parser.add_argument('-f', default='', type=str)
+    parser.add_argument('--conf', type=str)
+    parser.add_argument('--model-name', default=None, type=str)
+
+
+    # Fixed
+    parser.add_argument('--model', type=str, default='MulT',
+                        help='name of the model to use (Transformer, etc.)')
+
+    # Tasks
+    parser.add_argument('--vonly', action='store_false',
+                        help='use the crossmodal fusion into v (default: False)')
+    parser.add_argument('--aonly', action='store_false',
+                        help='use the crossmodal fusion into a (default: False)')
+    parser.add_argument('--lonly', action='store_false',
+                        help='use the crossmodal fusion into l (default: False)')
+    parser.add_argument('--aligned', action='store_true', default=True,
+                        help='consider aligned experiment or not (default: True)')
+
+    # Dropouts
+    parser.add_argument('--attn_dropout', type=float, default=0.1,
+                        help='attention dropout')
+    parser.add_argument('--attn_dropout_a', type=float, default=0.0,
+                        help='attention dropout (for audio)')
+    parser.add_argument('--attn_dropout_v', type=float, default=0.0,
+                        help='attention dropout (for visual)')
+    parser.add_argument('--relu_dropout', type=float, default=0.1,
+                        help='relu dropout')
+    parser.add_argument('--embed_dropout', type=float, default=0.25,
+                        help='embedding dropout')
+    parser.add_argument('--res_dropout', type=float, default=0.1,
+                        help='residual block dropout')
+    parser.add_argument('--out_dropout', type=float, default=0.0,
+                        help='output layer dropout')
+
+    # Architecture
+    parser.add_argument('--nlevels', type=int, default=5,
+                        help='number of layers in the network (default: 5)')
+    parser.add_argument('--num_heads', type=int, default=5,
+                        help='number of heads for the transformer network (default: 5)')
+    parser.add_argument('--attn_mask', action='store_false',
+                        help='use attention mask for Transformer (default: true)')
+
+    # Tuning
+    parser.add_argument('--batch_size', type=int, default=24, metavar='N',
+                        help='batch size (default: 24)')
+    parser.add_argument('--clip', type=float, default=0.8,
+                        help='gradient clip value (default: 0.8)')
+    parser.add_argument('--lr', type=float, default=1e-3,
+                        help='initial learning rate (default: 1e-3)')
+    parser.add_argument('--optim', type=str, default='Adam',
+                        help='optimizer to use (default: Adam)')
+    parser.add_argument('--num_epochs', type=int, default=200,
+                        help='number of epochs (default: 40)')
+    parser.add_argument('--when', type=int, default=20,
+                        help='when to decay learning rate (default: 20)')
+    parser.add_argument('--batch_chunk', type=int, default=1,
+                        help='number of chunks per batch (default: 1)')
+
+    # Logistics
+    parser.add_argument('--log_interval', type=int, default=30,
+                        help='frequency of result logging (default: 30)')
+    parser.add_argument('--seed', type=int, default=1111,
+                        help='random seed')
+    parser.add_argument('--no_cuda', action='store_true',
+                        help='do not use cuda')
+    parser.add_argument('--name', type=str, default='mult',
+                        help='name of the trial (default: "mult")')
+    args = parser.parse_args()
     torch.manual_seed(gc.config['seed'])
-    train_model(config_file_name, model_name)
-    elapsed_time = time.time() - start_time
-    print('Total time: ' + time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
+    config_file_name = args.conf
+    gc.config = json.load(open(config_file_name), object_pairs_hook=OrderedDict)
+    model_name = args.model_name
+    # try:
+    train_model(args, config_file_name, model_name)
+    # except Exception as e:
+    #     print("Skip config {} because of '{}'".format(config_file_name, e))

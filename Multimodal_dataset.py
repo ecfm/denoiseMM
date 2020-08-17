@@ -38,13 +38,16 @@ class MultimodalDataset(Data.Dataset):
             self.dataset = MultimodalDataset.validset
 
         self.text = self.dataset.text
+        self.dirty = None
+        if self.cls == "train":
+            self.dirty = self.dataset.dirty
         self.audio = self.dataset.audio
         self.vision = self.dataset.vision
         self.y = self.dataset.y
 
 
     def load_data(self):
-        dataset_path = os.path.join(gc.data_path, gc.dataset + '_data.pkl')
+        dataset_path = os.path.join(gc.data_path, gc.dataset + '.pkl')
         dataset = pickle.load(open(dataset_path, 'rb'))
         gc.padding_len = dataset['test']['text'].shape[1]
         gc.dim_l = dataset['test']['text'].shape[2]
@@ -59,9 +62,15 @@ class MultimodalDataset(Data.Dataset):
             ds.audio = ds.audio.clone().cpu().detach()
             ds.vision = torch.tensor(dataset[split_type]['vision'].astype(np.float32)).cpu().detach()
             ds.y = torch.tensor(dataset[split_type]['labels'].astype(np.float32)).cpu().detach()
+            if split_type == "train":
+                #print(split_type)
+                ds.dirty = torch.tensor(dataset[split_type]['dirty'].astype(np.float32)).cpu().detach()
 
     def __getitem__(self, index):
         inputLen = len(self.text[index])
+        if self.cls == "train":
+            return self.text[index], self.audio[index], self.vision[index], self.dirty[index], \
+                inputLen, self.y[index].squeeze()
         return self.text[index], self.audio[index], self.vision[index], \
                inputLen, self.y[index].squeeze()
 
