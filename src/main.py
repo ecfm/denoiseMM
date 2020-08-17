@@ -111,10 +111,10 @@ def train_model(args, config_file_name, model_name):
     global savedStdout
     savedStdout = sys.stdout
     if gc.dataset == 'mosei_emo':
-        from MOSEI_emo_dataset import MoseiEmotionDataset
+        from dataset.MOSEI_emo_dataset import MoseiEmotionDataset
         ds = MoseiEmotionDataset
     else:
-        from Multimodal_dataset import MultimodalDataset
+        from dataset.Multimodal_dataset import MultimodalDataset
         ds = MultimodalDataset
 
     train_dataset = ds(gc.data_path, cls="train")
