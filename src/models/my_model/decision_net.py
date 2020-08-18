@@ -1,9 +1,5 @@
-import torch
-from torch import nn
 import torch.nn.functional as F
-from consts import global_consts as gc
-
-from modules.transformer import TransformerEncoder
+from torch import nn
 
 
 class DecisionNet(nn.Module):
