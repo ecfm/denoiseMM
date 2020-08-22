@@ -1,0 +1,27 @@
+{
+  "model": "M3ER",
+  "dataset": "mosi",
+  "data_path": "/Users/cask/Dropbox (MIT)/OneDrive/CMU_courses/11777/denoiseMM/data/mosi.pkl",
+  "max_threads": 1,
+  "gpus": [0],
+  "model_params": {
+      "d_lav": [100],
+      "tau": [0.2, 0.5, 0.7],
+      "h_l": [32,64,88,128,156,256],
+      "h_a": [32,48,64,80],
+      "h_v": [32,48,64,80],
+      "memsize": [128],
+      "windowsize": [2],
+      "h_att1": [32,64,128],
+      "h_att2": [32,64,128],
+      "h_gamma1": [32,64,128],
+      "h_gamma2": [32,64,128],
+      "h_out": [64]
+  },
+  "train_params": {
+      "batch_size": [100],
+      "num_epochs": [500],
+      "patience_epochs": [60],
+      "lr": [0.0001, 0.001]
+  }
+}
