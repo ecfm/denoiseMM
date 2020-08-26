@@ -52,9 +52,9 @@ class Model(nn.Module):
         corr_la = correlation_score(vec_l, vec_a)
         corr_av = correlation_score(vec_a, vec_v)
         corr_lv = correlation_score(vec_l, vec_v)
-        I_l = (corr_la >= self.tau) * (corr_lv >= self.tau) * torch.ones_like(words)
-        I_a = (corr_la >= self.tau) * (corr_av >= self.tau) * torch.ones_like(covarep)
-        I_v = (corr_av >= self.tau) * (corr_lv >= self.tau) * torch.ones_like(facet)
+        I_l = ((corr_la < self.tau) * (corr_lv < self.tau) == 0) * torch.ones_like(words)
+        I_a = ((corr_la < self.tau) * (corr_av < self.tau) == 0) * torch.ones_like(covarep)
+        I_v = ((corr_av < self.tau) * (corr_lv < self.tau) == 0) * torch.ones_like(facet)
         proxy_l = torch.zeros_like(words)
         proxy_a = torch.zeros_like(covarep)
         proxy_v = torch.zeros_like(facet)
@@ -62,12 +62,10 @@ class Model(nn.Module):
             proxy_l = self.proj_l_proxy(words) * (I_l == 0)
             proxy_a = self.proj_a_proxy(covarep) * (I_a == 0)
             proxy_v = self.proj_v_proxy(facet) * (I_v == 0)
-        #TODO: double check if the correlation score is per data point
         f_l = I_l * words + proxy_l
         f_a = I_a * covarep + proxy_a
         f_v = I_v * facet + proxy_v
         x = torch.cat([f_l, f_a, f_v], dim=2)
-        #TODO: multiplicative fusion implementation before last step of mfn
         output = self.mfn(x)
         return output
 

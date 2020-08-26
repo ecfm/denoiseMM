@@ -33,7 +33,7 @@ import sys
 
 
 class MFN(nn.Module):
-	def __init__(self,d_l, d_a, d_v, h_l, h_a, h_v, memsize, windowsize, h_att1, h_att2, h_gamma1, h_gamma2, h_out):
+	def __init__(self,d_l, d_a, d_v, h_l, h_a, h_v, memsize, windowsize, h_att1, h_att2, h_gamma1, h_gamma2, h_out, d_fusion, beta, M=3):
 		super(MFN, self).__init__()
 		[self.d_l,self.d_a,self.d_v] = [d_l, d_a, d_v]
 		[self.dh_l,self.dh_a,self.dh_v] = [h_l, h_a, h_v]
@@ -43,7 +43,8 @@ class MFN(nn.Module):
 		output_dim = 1
 		attInShape = total_h_dim*window_dim
 		gammaInShape = attInShape+self.mem_dim
-		final_out = total_h_dim+self.mem_dim
+                self.d_fusion = d_fusion
+		final_out = self.d_fusion+self.mem_dim
 		att1_dropout = 0
 		att2_dropout = 0
 		gamma1_dropout = 0
@@ -69,11 +70,16 @@ class MFN(nn.Module):
 		self.gamma2_fc1 = nn.Linear(gammaInShape, h_gamma2)
 		self.gamma2_fc2 = nn.Linear(h_gamma2, self.mem_dim)
 		self.gamma2_dropout = nn.Dropout(gamma2_dropout)
+                
+                self.fusion_l = nn.Linear(self.dh_l, self.d_fusion)
+                self.fusion_a = nn.Linear(self.dh_a, self.d_fusion)
+                self.fusion_v = nn.Linear(self.dh_v, self.d_fusion)		
 
 		self.out_fc1 = nn.Linear(final_out, h_out)
 		self.out_fc2 = nn.Linear(h_out, output_dim)
 		self.out_dropout = nn.Dropout(out_dropout)
-		
+		self.beta = beta
+                self.M = M
 	def forward(self,x):
 		x_l = x[:,:,:self.d_l]
 		x_a = x[:,:,self.d_l:self.d_l+self.d_a]
@@ -132,7 +138,12 @@ class MFN(nn.Module):
 		last_h_a = all_h_as[-1]
 		last_h_v = all_h_vs[-1]
 		last_mem = all_mems[-1]
-		last_hs = torch.cat([last_h_l,last_h_a,last_h_v,last_mem], dim=1)
+                
+                last_hf_l = self.fusion_l(last_h_l)
+                last_hf_a = self.fusion_a(last_h_a)
+                last_hf_v = self.fusion_v(last_h_v)
+                last_hf_lav = torch.pow(last_hf_l, self.beta/(M-1)) * torch.log(last_hf_l) + torch.pow(last_hf_a, self.beta/(M-1)) * torch.log(last_hf_a) + torch.pow(last_hf_v, self.beta/(M-1)) * torch.log(last_hf_v)
+		last_hs = torch.cat([last_hf_lav,last_mem], dim=1)
 		output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
 		return output
 
