@@ -57,6 +57,14 @@ def training_thread(device_idx, config):
                 num_workers=1,
             )
 
+            valid_dataset = dataset_class(config['data_path'], cls="valid")
+            valid_loader = Data.DataLoader(
+                dataset=valid_dataset,
+                batch_size=train_params['batch_size'],
+                shuffle=False,
+                num_workers=1,
+            )
+
             test_dataset = dataset_class(config['data_path'], cls="test")
             test_loader = Data.DataLoader(
                 dataset=test_dataset,
@@ -67,7 +75,7 @@ def training_thread(device_idx, config):
             model = model_class(device, dataset_class, **model_params)
             model.to(device)
             del train_params['batch_size']
-            logs, best_result = model.train_eval(instance_dir, train_loader, test_loader, **train_params)
+            logs, best_result = model.train_eval(instance_dir, train_loader, valid_loader, test_loader, **train_params)
             end = time.perf_counter()
             run_time = end - start
             del model
@@ -77,6 +85,7 @@ def training_thread(device_idx, config):
                       "model_params={}, train_params={} because of {}".format(device, model_params, train_params, e))
                 with open(skip_file, 'w') as f:
                     json.dump({'error': str(e)}, f, sort_keys=True)
+                queue.task_done()
                 continue
             tb = traceback.format_exc()
             print(tb)
