@@ -125,7 +125,6 @@ class Model(nn.Module):
             test_metrics, test_output_all = self.get_results_no_grad(test_loader)
             all_train_metrics.append(train_metrics)
             all_valid_metrics.append(valid_metrics)
-            all_test_metrics.append(test_metrics)
             logs.append({'epoch': epoch,
                          'mode': self.mode,
                          **{"train." + k: v for k, v in train_metrics.items()},
@@ -142,6 +141,8 @@ class Model(nn.Module):
                     'test_metrics': test_metrics,
                     'test_outputs': test_output_all
                 }, model_path)
+                # Only record the test metrics when valid is the best
+                all_test_metrics.append(test_metrics)
             else:
                 if epoch - self.best_epoch > patience_epochs:
                     if self.mode == L_MODE:
