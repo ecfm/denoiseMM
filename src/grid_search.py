@@ -85,6 +85,7 @@ def training_thread(device_idx, config):
                       "model_params={}, train_params={} because of {}".format(device, model_params, train_params, e))
                 with open(skip_file, 'w') as f:
                     json.dump({'error': str(e)}, f, sort_keys=True)
+                queue.task_done()
                 continue
             tb = traceback.format_exc()
             print(tb)
