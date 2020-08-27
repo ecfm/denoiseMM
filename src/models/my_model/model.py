@@ -121,7 +121,7 @@ class Model(nn.Module):
                 output_all.extend(outputs.tolist())
                 label_all.extend(labels.tolist())
             train_metrics = self.ds.eval(output_all, label_all)
-            valid_metrics, valid_output_all = self.get_valid_results(valid_loader)
+            valid_metrics, valid_output_all = self.get_results_no_grad(valid_loader)
             test_metrics, test_output_all = self.get_results_no_grad(test_loader)
             all_train_metrics.append(train_metrics)
             all_valid_metrics.append(valid_metrics)
