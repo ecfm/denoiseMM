@@ -50,7 +50,7 @@ class Model(nn.Module):
         self.mode = L_MODE
         self.criterion = self.ds.get_loss()
 
-    def forward(self, x_l=None, x_l_masked=None, x_a=None, x_v=None, train_l=False, train_av=False):
+    def forward(self, x_l=None, x_a=None, x_v=None, train_l=False, train_av=False):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
@@ -74,16 +74,10 @@ class Model(nn.Module):
         if self.mode == AV_MODE:
             return outputs_av
 
-        masked_words = F.dropout(x_l_masked.transpose(1, 2), p=0.25, training=self.training)
-
-        # Project the textual/visual/audio features
-        masked_words = self.proj_l(masked_words).permute(2, 0, 1)
-        masked_l_latent = self.enc_l(masked_words)[-1]
-
         av_latent_comp = self.enc_av_comp(torch.cat([self.proj_a_comp(covarep).permute(2, 0, 1),
                                                      self.proj_v_comp(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
-        combined_l_latent = self.proj_double_l(torch.cat([masked_l_latent.detach(), av2l_latent.detach()], dim=1))
+        combined_l_latent = self.proj_double_l(torch.cat([l_latent.detach(), av2l_latent.detach()], dim=1))
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs
 
@@ -110,10 +104,10 @@ class Model(nn.Module):
             output_all = []
             for data in train_loader:
                 optimizer.zero_grad()
-                words, covarep, facet, masked_words, inputLen, labels = data
-                words, covarep, facet, masked_words, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                    device), masked_words.to(device), inputLen.to(device), labels.to(device)
-                outputs = self(x_l=words, x_l_masked=masked_words, x_a=covarep, x_v=facet)
+                words, covarep, facet, inputLen, labels = data
+                words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
+                    device), inputLen.to(device), labels.to(device)
+                outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 loss = self.criterion(outputs, labels)
                 # TODO: why retain_graph?
                 loss.backward(retain_graph=True)
@@ -185,7 +179,7 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = data
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                outputs = self(x_l=words, x_a=covarep, x_v=facet, x_l_masked=words)
+                outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 output_all.extend(labels.tolist())
                 label_all.extend(outputs.tolist())
 
