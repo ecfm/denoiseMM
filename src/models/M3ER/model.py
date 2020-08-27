@@ -10,7 +10,8 @@ class Model(nn.Module):
     def __init__(self, device, dataset_class,
                  d_lav, tau, h_l, h_a, h_v, 
                  memsize, windowsize, h_att1, 
-                 h_att2, h_gamma1, h_gamma2, h_out):
+                 h_att2, h_gamma1, h_gamma2, h_out,
+                 d_fusion, beta):
         """
         Construct a Net model.
         """
@@ -29,7 +30,8 @@ class Model(nn.Module):
         self.mfn = MFN(ds.dim_l, ds.dim_a, ds.dim_v,
                        h_l, h_a, h_v,
                        memsize, windowsize, h_att1,
-                       h_att2, h_gamma1, h_gamma2, h_out) 
+                       h_att2, h_gamma1, h_gamma2, h_out,
+                       d_fusion, beta) 
         self.criterion = self.ds.get_loss()
 
     def correlation_score(self, x, y):
@@ -42,26 +44,26 @@ class Model(nn.Module):
         """
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
-        words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
-        covarep = x_a.transpose(1, 2)
-        facet = x_v.transpose(1, 2)
+        words = F.dropout(x_l, p=0.25, training=self.training)
+        covarep = x_a
+        facet = x_v
         vec_l = self.proj_l(words)
         vec_a = self.proj_a(covarep)
         vec_v = self.proj_v(facet)
         
-        corr_la = correlation_score(vec_l, vec_a)
-        corr_av = correlation_score(vec_a, vec_v)
-        corr_lv = correlation_score(vec_l, vec_v)
-        I_l = ((corr_la < self.tau) * (corr_lv < self.tau) == 0) * torch.ones_like(words)
-        I_a = ((corr_la < self.tau) * (corr_av < self.tau) == 0) * torch.ones_like(covarep)
-        I_v = ((corr_av < self.tau) * (corr_lv < self.tau) == 0) * torch.ones_like(facet)
+        corr_la = self.correlation_score(vec_l, vec_a)
+        corr_av = self.correlation_score(vec_a, vec_v)
+        corr_lv = self.correlation_score(vec_l, vec_v)
+        I_l = ((corr_la < self.tau) * (corr_lv < self.tau) == 0).float().reshape((-1, 1, 1)) * torch.ones_like(words)
+        I_a = ((corr_la < self.tau) * (corr_av < self.tau) == 0).float().reshape((-1, 1, 1)) * torch.ones_like(covarep)
+        I_v = ((corr_av < self.tau) * (corr_lv < self.tau) == 0).float().reshape((-1, 1, 1)) * torch.ones_like(facet)
         proxy_l = torch.zeros_like(words)
         proxy_a = torch.zeros_like(covarep)
         proxy_v = torch.zeros_like(facet)
         if mode == "test":
-            proxy_l = self.proj_l_proxy(words) * (I_l == 0)
-            proxy_a = self.proj_a_proxy(covarep) * (I_a == 0)
-            proxy_v = self.proj_v_proxy(facet) * (I_v == 0)
+            proxy_l = self.proj_l_proxy(words) * (I_l == 0).float()
+            proxy_a = self.proj_a_proxy(covarep) * (I_a == 0).float()
+            proxy_v = self.proj_v_proxy(facet) * (I_v == 0).float()
         f_l = I_l * words + proxy_l
         f_a = I_a * covarep + proxy_a
         f_v = I_v * facet + proxy_v
@@ -73,7 +75,6 @@ class Model(nn.Module):
                    num_epochs, patience_epochs, lr):
         optimizer = optim.Adam(self.parameters(), lr=lr)
         self.best_epoch = -1
-        self.mode = L_MODE
         model_path = os.path.join(instance_dir, 'checkpoint.pytorch')
         best_metrics = None
         logs = []
@@ -85,10 +86,11 @@ class Model(nn.Module):
             output_all = []
             for data in train_loader:
                 optimizer.zero_grad()
-                words, covarep, facet, masked_words, inputLen, labels = data
-                words, covarep, facet, masked_words, inputLen, labels = words.to(device), covarep.to(device), facet.to(
-                    device), masked_words.to(device), inputLen.to(device), labels.to(device)
+                words, covarep, facet, inputLen, labels = data
+                words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
+                    device), inputLen.to(device), labels.to(device)
                 outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                print(outputs)
                 loss = self.criterion(outputs, labels)
                 # TODO: why retain_graph?
                 loss.backward(retain_graph=True)
@@ -100,9 +102,9 @@ class Model(nn.Module):
             all_train_metrics.append(train_metrics)
             all_test_metrics.append(test_metrics)
             logs.append({'epoch': epoch,
-                         'mode': self.mode,
                          **{"train." + k: v for k, v in train_metrics.items()},
                          **{"test." + k: v for k, v in test_metrics.items()}})
+            print('epoch',  epoch, train_metrics.items(), "test." ,test_metrics.items())
             if self.ds.is_better_metric(test_metrics, best_metrics):
                 best_metrics = test_metrics
                 self.best_epoch = epoch
@@ -116,7 +118,6 @@ class Model(nn.Module):
         best_train_metrics = self.ds.get_best_metrics(all_train_metrics)
         best_test_metrics = self.ds.get_best_metrics(all_test_metrics)
         best_result = {'best_epoch': self.best_epoch,
-                       'final_mode': self.mode,
                        **{"train." + k: v for k, v in best_train_metrics.items()},
                        **{"test." + k: v for k, v in best_test_metrics.items()}}
         return logs, best_result

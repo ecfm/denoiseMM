@@ -13,12 +13,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import h5py
 import time
-import data_loader as loader
-from collections import defaultdict, OrderedDict
 import argparse
-import cPickle as pickle
 import time
-import json, os, ast, h5py
+import json, os, h5py
 
 from keras.models import Model
 from keras.layers import Input
@@ -43,7 +40,7 @@ class MFN(nn.Module):
 		output_dim = 1
 		attInShape = total_h_dim*window_dim
 		gammaInShape = attInShape+self.mem_dim
-                self.d_fusion = d_fusion
+		self.d_fusion = d_fusion
 		final_out = self.d_fusion+self.mem_dim
 		att1_dropout = 0
 		att2_dropout = 0
@@ -71,15 +68,15 @@ class MFN(nn.Module):
 		self.gamma2_fc2 = nn.Linear(h_gamma2, self.mem_dim)
 		self.gamma2_dropout = nn.Dropout(gamma2_dropout)
                 
-                self.fusion_l = nn.Linear(self.dh_l, self.d_fusion)
-                self.fusion_a = nn.Linear(self.dh_a, self.d_fusion)
-                self.fusion_v = nn.Linear(self.dh_v, self.d_fusion)		
+		self.fusion_l = nn.Linear(self.dh_l, self.d_fusion)
+		self.fusion_a = nn.Linear(self.dh_a, self.d_fusion)
+		self.fusion_v = nn.Linear(self.dh_v, self.d_fusion)		
 
 		self.out_fc1 = nn.Linear(final_out, h_out)
 		self.out_fc2 = nn.Linear(h_out, output_dim)
 		self.out_dropout = nn.Dropout(out_dropout)
 		self.beta = beta
-                self.M = M
+		self.M = M
 	def forward(self,x):
 		x_l = x[:,:,:self.d_l]
 		x_a = x[:,:,self.d_l:self.d_l+self.d_a]
@@ -139,14 +136,24 @@ class MFN(nn.Module):
 		last_h_v = all_h_vs[-1]
 		last_mem = all_mems[-1]
                 
-                last_hf_l = self.fusion_l(last_h_l)
-                last_hf_a = self.fusion_a(last_h_a)
-                last_hf_v = self.fusion_v(last_h_v)
-                last_hf_lav = torch.pow(last_hf_l, self.beta/(M-1)) * torch.log(last_hf_l) + torch.pow(last_hf_a, self.beta/(M-1)) * torch.log(last_hf_a) + torch.pow(last_hf_v, self.beta/(M-1)) * torch.log(last_hf_v)
+		last_hf_l = self.fusion_l(last_h_l)
+		last_hf_a = self.fusion_a(last_h_a)
+		last_hf_v = self.fusion_v(last_h_v)
+		p_h_l = self.compute_exp(last_hf_l)
+		p_h_a = self.compute_exp(last_hf_a)
+		p_h_v = self.compute_exp(last_hf_v)
+		last_hf_lav = torch.pow(p_h_l, self.beta/(self.M-1)) * torch.log(p_h_l) + torch.pow(p_h_a, self.beta/(self.M-1)) * torch.log(p_h_a) + torch.pow(p_h_v, self.beta/(self.M-1)) * torch.log(p_h_v)
 		last_hs = torch.cat([last_hf_lav,last_mem], dim=1)
 		output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
 		return output
+	
+	def compute_exp(self, logits):
+		logits_max = torch.max(logits)
+		off_logits = logits - logits_max
+		p = torch.exp(off_logits)
+		return p
 
+"""
 def train_mfn(X_train, y_train, X_valid, y_valid, X_test, y_test, configs):
 	p = np.random.permutation(X_train.shape[0])
 	X_train = X_train[p]
@@ -245,6 +252,7 @@ def train_mfn(X_train, y_train, X_valid, y_valid, X_test, y_test, configs):
 	print classification_report(true_label, predicted_label, digits=5)
 	print "Accuracy ", accuracy_score(true_label, predicted_label)
 	sys.stdout.flush()
+
 
 def test(X_test, y_test, metric):
 	X_test = X_test.swapaxes(0,1)
@@ -361,4 +369,4 @@ while True:
 	print configs
 	train_mfn(X_train, y_train, X_valid, y_valid, X_test, y_test, configs)
 
-
+"""
