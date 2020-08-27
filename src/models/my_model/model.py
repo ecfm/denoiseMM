@@ -93,7 +93,7 @@ class Model(nn.Module):
         self.load_state_dict(checkpoint['state'])
         self.best_epoch = epoch
 
-    def train_eval(self, instance_dir, train_loader, test_loader,
+    def train_eval(self, instance_dir, train_loader, valid_loader, test_loader,
                    num_epochs, patience_epochs, lr):
         optimizer = optim.Adam(self.parameters(), lr=lr)
         self.best_epoch = -1
@@ -102,6 +102,7 @@ class Model(nn.Module):
         best_metrics = None
         logs = []
         all_train_metrics = []
+        all_valid_metrics = []
         all_test_metrics = []
         device = self.device
         for epoch in range(num_epochs):
@@ -120,19 +121,24 @@ class Model(nn.Module):
                 output_all.extend(outputs.tolist())
                 label_all.extend(labels.tolist())
             train_metrics = self.ds.eval(output_all, label_all)
-            test_metrics, test_output_all = self.get_test_results(test_loader)
+            valid_metrics, valid_output_all = self.get_valid_results(valid_loader)
+            test_metrics, test_output_all = self.get_results_no_grad(test_loader)
             all_train_metrics.append(train_metrics)
+            all_valid_metrics.append(valid_metrics)
             all_test_metrics.append(test_metrics)
             logs.append({'epoch': epoch,
                          'mode': self.mode,
                          **{"train." + k: v for k, v in train_metrics.items()},
+                         **{"valid." + k: v for k, v in valid_metrics.items()},
                          **{"test." + k: v for k, v in test_metrics.items()}})
-            if self.ds.is_better_metric(test_metrics, best_metrics):
-                best_metrics = test_metrics
+            if self.ds.is_better_metric(valid_metrics, best_metrics):
+                best_metrics = valid_metrics
                 self.best_epoch = epoch
                 torch.save({
                     'epoch': epoch,
                     'state': self.state_dict(),
+                    'valid_metrics': valid_metrics,
+                    'valid_outputs': valid_output_all,
                     'test_metrics': test_metrics,
                     'test_outputs': test_output_all
                 }, model_path)
@@ -160,28 +166,30 @@ class Model(nn.Module):
                         break
 
         best_train_metrics = self.ds.get_best_metrics(all_train_metrics)
+        best_valid_metrics = self.ds.get_best_metrics(all_valid_metrics)
         best_test_metrics = self.ds.get_best_metrics(all_test_metrics)
         best_result = {'best_epoch': self.best_epoch,
                        'final_mode': self.mode,
                        **{"train." + k: v for k, v in best_train_metrics.items()},
+                       **{"valid." + k: v for k, v in best_valid_metrics.items()},
                        **{"test." + k: v for k, v in best_test_metrics.items()}}
         return logs, best_result
 
-    def get_test_results(self, test_loader):
+    def get_results_no_grad(self, data_loader):
         device = self.device
         with torch.no_grad():
-            test_output_all = []
-            test_label_all = []
-            for data in test_loader:
+            output_all = []
+            label_all = []
+            for data in data_loader:
                 words, covarep, facet, inputLen, labels = data
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
                 outputs = self(x_l=words, x_a=covarep, x_v=facet, x_l_masked=words)
-                test_output_all.extend(labels.tolist())
-                test_label_all.extend(outputs.tolist())
+                output_all.extend(labels.tolist())
+                label_all.extend(outputs.tolist())
 
-            test_metrics = self.ds.eval(test_output_all, test_label_all)
-            return test_metrics, test_output_all
+            metrics = self.ds.eval(output_all, label_all)
+            return metrics, output_all
 
 
 def set_requires_grad(module, val):

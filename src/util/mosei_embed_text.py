@@ -138,4 +138,4 @@ if __name__ == "__main__":
             # my_text.append(' '.join(t))
         # print(t)
     # [s for s in my_text if 'UNK_' in ' '.join(s)]
-    pickle.dump(my_text, open("mosei_senti_data_text.pkl.pkl", "wb"))
+    pickle.dump(m, open("mosei_senti_data_text.pkl", "wb"))
