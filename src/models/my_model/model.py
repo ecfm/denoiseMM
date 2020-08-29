@@ -1,9 +1,9 @@
 import os
 
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch import nn, optim
-import pandas as pd
 
 from .decision_net import DecisionNet
 from .modules.transformer import TransformerEncoder
@@ -121,11 +121,11 @@ class Model(nn.Module):
             test_metrics, test_output_all = self.get_results_no_grad(test_loader)
             all_train_metrics.append(train_metrics)
             all_valid_metrics.append(valid_metrics)
-            logs.append({'epoch': epoch,
-                         'mode': self.mode,
-                         **{"train." + k: v for k, v in train_metrics.items()},
-                         **{"valid." + k: v for k, v in valid_metrics.items()},
-                         **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
+            logs = logs.append({'epoch': epoch,
+                                'mode': self.mode,
+                                **{"train." + k: v for k, v in train_metrics.items()},
+                                **{"valid." + k: v for k, v in valid_metrics.items()},
+                                **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
             logs.to_csv(log_path, index=False)
             if self.ds.is_better_metric(valid_metrics, best_metrics):
                 best_metrics = valid_metrics
