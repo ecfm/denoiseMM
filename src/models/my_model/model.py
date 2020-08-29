@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 from torch import nn, optim
+import pandas as pd
 
 from .decision_net import DecisionNet
 from .modules.transformer import TransformerEncoder
@@ -92,13 +93,14 @@ class Model(nn.Module):
         optimizer = optim.Adam(self.parameters(), lr=lr)
         self.best_epoch = -1
         self.mode = L_MODE
+        log_path = os.path.join(instance_dir, 'train_eval.log')
         model_path = os.path.join(instance_dir, 'checkpoint.pytorch')
         best_metrics = None
-        logs = []
         all_train_metrics = []
         all_valid_metrics = []
         all_test_metrics = []
         device = self.device
+        logs = pd.DataFrame()
         for epoch in range(num_epochs):
             label_all = []
             output_all = []
@@ -123,7 +125,8 @@ class Model(nn.Module):
                          'mode': self.mode,
                          **{"train." + k: v for k, v in train_metrics.items()},
                          **{"valid." + k: v for k, v in valid_metrics.items()},
-                         **{"test." + k: v for k, v in test_metrics.items()}})
+                         **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
+            logs.to_csv(log_path, index=False)
             if self.ds.is_better_metric(valid_metrics, best_metrics):
                 best_metrics = valid_metrics
                 self.best_epoch = epoch
