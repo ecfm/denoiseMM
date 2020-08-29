@@ -16,7 +16,7 @@
       "n_layers_av2l": [1, 2]
   },
   "train_params": {
-      "batch_size": [150],
+      "batch_size": [128],
       "num_epochs": [500],
       "patience_epochs": [30],
       "lr": [0.001]
