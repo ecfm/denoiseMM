@@ -54,7 +54,6 @@ class MultimodalSentiDataset(Data.Dataset):
     def eval(outputs, labels):
         preds = np.array(outputs)
         truth = np.array(labels)
-        print(preds, truth)
         mae = np.mean(np.abs(truth - preds))
         return {'mae': mae}
 
