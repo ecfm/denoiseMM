@@ -90,7 +90,6 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
                 outputs = self(x_l=words, x_a=covarep, x_v=facet)
-                print(outputs)
                 loss = self.criterion(outputs, labels)
                 # TODO: why retain_graph?
                 loss.backward(retain_graph=True)
