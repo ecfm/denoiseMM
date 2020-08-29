@@ -15,7 +15,7 @@ LAV_MODE = 'LAV'
 
 class Model(nn.Module):
     def __init__(self, device, dataset_class,
-                 d_l, d_a, d_v, n_head_l, n_layers_l, n_head_av, n_layers_av):
+                 d_l, d_a, d_v, n_head_l, n_layers_l, n_head_av2l, n_layers_av2l, n_head_av, n_layers_av):
         """
         Construct a Net model.
         """
@@ -37,8 +37,8 @@ class Model(nn.Module):
                                         layers=n_layers_l,
                                         attn_dropout=0.1)
         self.enc_av2l = TransformerEncoder(embed_dim=d_a + d_v,
-                                           num_heads=n_head_av,
-                                           layers=n_layers_av,
+                                           num_heads=n_head_av2l,
+                                           layers=n_layers_av2l,
                                            attn_dropout=0.0)
         self.proj_av2l = nn.Linear(d_a + d_v, d_l)
         self.proj_double_l = nn.Linear(d_l * 2, d_l)
@@ -68,9 +68,7 @@ class Model(nn.Module):
                                                      self.proj_v(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
         av2l_latent = self.proj_av2l(av2l_intermediate)
-        set_requires_grad(self.dec_l, False)
         outputs_av = self.dec_l(av2l_latent)
-        set_requires_grad(self.dec_l, False)
 
         if self.mode == AV_MODE:
             return outputs_av
@@ -87,6 +85,7 @@ class Model(nn.Module):
         checkpoint = torch.load(model_path, map_location=self.device)
         self.load_state_dict(checkpoint['state'])
         self.best_epoch = epoch
+        self.best_metrics = None
 
     def train_eval(self, instance_dir, train_loader, valid_loader, test_loader,
                    num_epochs, patience_epochs, lr):
@@ -95,7 +94,7 @@ class Model(nn.Module):
         self.mode = L_MODE
         log_path = os.path.join(instance_dir, 'train_eval.log')
         model_path = os.path.join(instance_dir, 'checkpoint.pytorch')
-        best_metrics = None
+        self.best_metrics = None
         all_train_metrics = []
         all_valid_metrics = []
         all_test_metrics = []
@@ -127,8 +126,8 @@ class Model(nn.Module):
                                 **{"valid." + k: v for k, v in valid_metrics.items()},
                                 **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
             logs.to_csv(log_path, index=False)
-            if self.ds.is_better_metric(valid_metrics, best_metrics):
-                best_metrics = valid_metrics
+            if self.ds.is_better_metric(valid_metrics, self.best_metrics):
+                self.best_metrics = valid_metrics
                 self.best_epoch = epoch
                 torch.save({
                     'epoch': epoch,
