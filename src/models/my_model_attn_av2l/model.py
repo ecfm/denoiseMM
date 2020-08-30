@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn, optim
 
+from models.my_model_attn_av2l.attention_net import AttentionNet
 from .decision_net import DecisionNet
 from .modules.transformer import TransformerEncoder
 
@@ -15,7 +16,8 @@ LAV_MODE = 'LAV'
 
 class Model(nn.Module):
     def __init__(self, device, dataset_class,
-                 d_l, d_a, d_v, n_head_l, n_layers_l, n_head_av2l, n_layers_av2l, n_head_av, n_layers_av):
+                 d_l, d_a, d_v, n_head_l, n_layers_l, n_head_av2l, n_layers_av2l, d_av2l_h, n_head_av, n_layers_av,
+                 dropout):
         """
         Construct a Net model.
         """
@@ -35,17 +37,17 @@ class Model(nn.Module):
         self.enc_l = TransformerEncoder(embed_dim=d_l,
                                         num_heads=n_head_l,
                                         layers=n_layers_l,
-                                        attn_dropout=0.1)
+                                        attn_dropout=dropout)
         self.enc_av2l = TransformerEncoder(embed_dim=d_a + d_v,
                                            num_heads=n_head_av2l,
                                            layers=n_layers_av2l,
-                                           attn_dropout=0.0)
+                                           attn_dropout=dropout)
         self.proj_av2l = nn.Linear(d_a + d_v, d_l)
-        self.proj_double_l = nn.Linear(d_l * 2, d_l)
+        self.av2l_l_attn = AttentionNet(d_l * 2, d_av2l_h, dropout)
         self.enc_av_comp = TransformerEncoder(embed_dim=d_a + d_v,
                                               num_heads=n_head_av,
                                               layers=n_layers_av,
-                                              attn_dropout=0.0)
+                                              attn_dropout=dropout)
         self.dec_l = DecisionNet(input_dim=d_l, output_dim=ds.output_dim)
         self.dec_lav = DecisionNet(input_dim=d_l + d_a + d_v, output_dim=ds.output_dim)
         self.mode = L_MODE
@@ -76,7 +78,9 @@ class Model(nn.Module):
         av_latent_comp = self.enc_av_comp(torch.cat([self.proj_a_comp(covarep).permute(2, 0, 1),
                                                      self.proj_v_comp(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
-        combined_l_latent = self.proj_double_l(torch.cat([l_latent.detach(), av2l_latent.detach()], dim=1))
+        av2l_l_cat = torch.cat([l_latent.detach(), av2l_latent.detach()], dim=1)
+        av2l_l_weighted = self.av2l_l_attn(av2l_l_cat) * av2l_l_cat
+        combined_l_latent = av2l_l_weighted[:, :l_latent.shape[1]] + av2l_l_weighted[:, l_latent.shape[1]:]
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs
 

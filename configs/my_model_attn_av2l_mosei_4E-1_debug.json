@@ -1,0 +1,26 @@
+{
+  "model": "my_model_attn_av2l",
+  "dataset": "mosi",
+  "data_path": "data/mosei_mask_E-04_train_E-04_test.pkl",
+  "max_threads": 1,
+  "gpus": [0],
+  "model_params": {
+      "d_l": [100, 200],
+      "d_a": [20, 40],
+      "d_v": [20, 40],
+      "n_head_l": [2, 5],
+      "n_layers_l": [4],
+      "n_head_av": [2, 5],
+      "n_layers_av": [4],
+      "n_head_av2l": [2, 5],
+      "n_layers_av2l": [1, 2],
+      "d_av2l_h": [50, 100],
+      "dropout": [0.1]
+  },
+  "train_params": {
+      "batch_size": [128],
+      "num_epochs": [500],
+      "patience_epochs": [30],
+      "lr": [0.001]
+  }
+}
