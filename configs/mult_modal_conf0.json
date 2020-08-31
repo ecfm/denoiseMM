@@ -1,6 +1,6 @@
 {
-  "model": "M3ER",
-  "dataset": "mosi",
+  "model": "multiplicative_modal",
+  "dataset": "mosei",
   "data_path": "/work/xiaoyam/private/Summer19/Research/11777/denoiseMM/data/mosei_senti_data_text.pkl",
   "max_threads": 1,
   "model_params": {

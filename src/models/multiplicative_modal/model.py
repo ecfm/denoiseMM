@@ -74,7 +74,6 @@ class Model(nn.Module):
     def train_eval(self, instance_dir, train_loader, valid_loader, test_loader,
                    num_epochs, patience_epochs, lr):
         optimizer = optim.Adam(self.parameters(), lr=lr)
-        print(list(self.parameters()))
         self.best_epoch = -1
         model_path = os.path.join(instance_dir, 'checkpoint.pytorch')
         best_metrics = None
