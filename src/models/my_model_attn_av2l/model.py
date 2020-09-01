@@ -44,6 +44,7 @@ class Model(nn.Module):
                                            attn_dropout=dropout)
         self.proj_av2l = nn.Linear(d_a + d_v, d_l)
         self.av2l_l_attn = AttentionNet(d_l * 2, d_av2l_h, dropout)
+        self.proj_double_l = nn.Linear(d_l * 2, d_l)
         self.enc_av_comp = TransformerEncoder(embed_dim=d_a + d_v,
                                               num_heads=n_head_av,
                                               layers=n_layers_av,
@@ -80,7 +81,7 @@ class Model(nn.Module):
                                                     dim=2))[-1]
         av2l_l_cat = torch.cat([l_latent.detach(), av2l_latent.detach()], dim=1)
         av2l_l_weighted = self.av2l_l_attn(av2l_l_cat) * av2l_l_cat
-        combined_l_latent = av2l_l_weighted[:, :l_latent.shape[1]] + av2l_l_weighted[:, l_latent.shape[1]:]
+        combined_l_latent = self.proj_double_l(av2l_l_weighted)
         outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
         return outputs
 
