@@ -142,12 +142,12 @@ class MFN(nn.Module):
 		p_h_l = self.compute_exp(last_hf_l)
 		p_h_a = self.compute_exp(last_hf_a)
 		p_h_v = self.compute_exp(last_hf_v)
-                p_h_la = p_h_l * p_h_a
-                p_h_lv = p_h_l * p_h_v
-                p_h_av = p_h_a * p_h_v
-		last_hf_lav = torch.pow(torch.max(p_h_av) - p_h_av, self.beta/(self.M-1)) * torch.log(p_h_l) + torch.pow(torch.max(p_h_lv) - p_h_lv, self.beta/(self.M-1)) * torch.log(p_h_a) + torch.pow(torch.max(p_h_la) - p_h_la, self.beta/(self.M-1)) * torch.log(p_h_v)
+		p_h_la = p_h_l * p_h_a
+		p_h_lv = p_h_l * p_h_v
+		p_h_av = p_h_a * p_h_v
+		last_hf_lav = torch.pow(p_h_av, self.beta/(self.M-1)) * torch.log(p_h_l) + torch.pow(p_h_lv, self.beta/(self.M-1)) * torch.log(p_h_a) + torch.pow(p_h_la, self.beta/(self.M-1)) * torch.log(p_h_v)
 		last_hs = torch.cat([last_hf_lav,last_mem], dim=1)
-		output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs))))
+		output = self.out_fc2(self.out_dropout(F.relu(self.out_fc1(last_hs)))).flatten()
 		return output
 	
 	def compute_exp(self, logits):

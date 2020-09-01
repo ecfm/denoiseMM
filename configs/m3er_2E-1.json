@@ -1,7 +1,7 @@
 {
-  "model": "multiplicative_modal",
-  "dataset": "mosei",
-  "data_path": "/work/xiaoyam/private/Summer19/Research/11777/denoiseMM/data/mosei_senti_data_text.pkl",
+  "model": "M3ER",
+  "dataset": "mosi",
+  "data_path": "/work/xiaoyam/private/Summer19/Research/11777/denoiseMM/data/mosei_mask_E-02_train_E-02_test.pkl",
   "max_threads": 1,
   "model_params": {
       "d_lav": [100],

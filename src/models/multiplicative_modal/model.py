@@ -64,9 +64,9 @@ class Model(nn.Module):
             proxy_l = self.proj_l_proxy(words) * (I_l == 0).float()
             proxy_a = self.proj_a_proxy(covarep) * (I_a == 0).float()
             proxy_v = self.proj_v_proxy(facet) * (I_v == 0).float()
-        f_l = I_l * words + proxy_l
-        f_a = I_a * covarep + proxy_a
-        f_v = I_v * facet + proxy_v
+        f_l = torch.transpose(I_l * words + proxy_l, 0, 1)
+        f_a = torch.transpose(I_a * covarep + proxy_a, 0, 1)
+        f_v = torch.transpose(I_v * facet + proxy_v, 0, 1)
         x = torch.cat([f_l, f_a, f_v], dim=2)
         output = self.mfn(x)
         return output
@@ -106,7 +106,7 @@ class Model(nn.Module):
                          **{"train." + k: v for k, v in train_metrics.items()},
                          **{"valid." + k: v for k, v in valid_metrics.items()},
                          **{"test." + k: v for k, v in test_metrics.items()}})
-            print('epoch',  epoch, train_metrics.items(), "valid." ,valid_metrics.items())
+            print('epoch',  epoch, train_metrics.items(), "valid." ,valid_metrics.items(), "test", test_metrics.items())
             if self.ds.is_better_metric(valid_metrics, best_metrics):
                 self.best_metrics = valid_metrics
                 self.best_epoch = epoch
@@ -125,7 +125,6 @@ class Model(nn.Module):
         best_valid_metrics = self.ds.get_best_metrics(all_valid_metrics)
         best_test_metrics = self.ds.get_best_metrics(all_test_metrics)
         best_result = {'best_epoch': self.best_epoch,
-                       'final_mode': self.mode,
                        **{"train." + k: v for k, v in best_train_metrics.items()},
                        **{"valid." + k: v for k, v in best_valid_metrics.items()},
                        **{"test." + k: v for k, v in best_test_metrics.items()}}
