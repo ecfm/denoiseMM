@@ -212,6 +212,7 @@ class Model(nn.Module):
                     _, outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 else:
                     outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                output_all.extend(labels.tolist())
                 label_all.extend(outputs.tolist())
             metrics = self.ds.eval(output_all, label_all)
             return metrics, output_all
