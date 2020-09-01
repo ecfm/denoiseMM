@@ -116,9 +116,9 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
                 if self.mode == AV_MODE:
-                    l_outputs, av_outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                    l_outputs, outputs = self(x_l=words, x_a=covarep, x_v=facet)
                     l_loss = self.criterion(l_outputs, labels).detach()
-                    av_loss = self.criterion(av_outputs, labels)
+                    av_loss = self.criterion(outputs, labels)
                     loss = av_loss * torch.pow(l_loss, beta)
 
                 else:
@@ -208,10 +208,11 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = data
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                outputs = self(x_l=words, x_a=covarep, x_v=facet)
-                output_all.extend(labels.tolist())
+                if self.mode == AV_MODE:
+                    _, outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                else:
+                    outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 label_all.extend(outputs.tolist())
-
             metrics = self.ds.eval(output_all, label_all)
             return metrics, output_all
 
