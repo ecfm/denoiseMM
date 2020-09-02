@@ -81,7 +81,7 @@ class Model(nn.Module):
                                                      self.proj_v_comp(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
 
-        outputs = self.dec_lav(torch.cat([combined_l_latent + l_latent, av_latent_comp], dim=1))
+        _, outputs = self.dec_lav(torch.cat([combined_l_latent + l_latent, av_latent_comp], dim=1))
         return outputs
 
     def change_to_mode(self, to_mode, model_path, epoch):
