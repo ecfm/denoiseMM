@@ -69,7 +69,7 @@ class Model(nn.Module):
         av2l_intermediate = self.enc_av2l(torch.cat([self.proj_a(covarep).permute(2, 0, 1),
                                                      self.proj_v(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
-        av2l_l_cat = torch.cat([l_latent.detach(), av2l_intermediate.detach()], dim=1)
+        av2l_l_cat = torch.cat([l_latent, av2l_intermediate], dim=1)
         combined_l_latent, outputs_av = self.dec_av(self.proj_avl2l(av2l_l_cat)+l_latent)
         if self.mode == AV_MODE:
             return outputs_l, outputs_av
