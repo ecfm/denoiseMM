@@ -72,7 +72,7 @@ class Model(nn.Module):
                                                     dim=2))[-1]
         av2l_l_cat = torch.cat([l_latent.detach(), av2l_intermediate.detach()], dim=1)
         av2l_l_weighted = self.av2l_l_attn(av2l_l_cat) * av2l_l_cat
-        combined_l_latent, outputs_av = self.dec_av(self.proj_avl2l(av2l_l_weighted)+l_latent)+l_latent
+        combined_l_latent, outputs_av = self.dec_av(self.proj_avl2l(av2l_l_weighted)+l_latent)
 
         if self.mode == AV_MODE:
             return outputs_l, outputs_av
@@ -81,7 +81,7 @@ class Model(nn.Module):
                                                      self.proj_v_comp(facet).permute(2, 0, 1)],
                                                     dim=2))[-1]
 
-        outputs = self.dec_lav(torch.cat([combined_l_latent, av_latent_comp], dim=1))
+        outputs = self.dec_lav(torch.cat([combined_l_latent + l_latent, av_latent_comp], dim=1))
         return outputs
 
     def change_to_mode(self, to_mode, model_path, epoch):
