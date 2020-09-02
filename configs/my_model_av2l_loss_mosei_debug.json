@@ -13,12 +13,15 @@
       "n_head_av": [2, 5],
       "n_layers_av": [4],
       "n_head_av2l": [2, 5],
-      "n_layers_av2l": [1, 2]
+      "n_layers_av2l": [1, 2],
+      "d_av2l_h": [50, 100],
+      "dropout": [0.1]
   },
   "train_params": {
       "batch_size": [128],
       "num_epochs": [500],
       "patience_epochs": [30],
+      "beta": [0.4, 1],
       "lr": [0.001]
   }
 }
