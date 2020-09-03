@@ -38,22 +38,23 @@ class Model(nn.Module):
         self.enc_l = TransformerEncoder(embed_dim=d_l,
                                         num_heads=n_head_l,
                                         layers=n_layers_l,
-                                        attn_dropout=0.1)
+                                        attn_dropout=dropout)
         self.enc_av2l = TransformerEncoder(embed_dim=d_a + d_v,
                                            num_heads=n_head_av2l,
                                            layers=n_layers_av2l,
-                                           attn_dropout=0.0)
+                                           attn_dropout=dropout)
         self.av2l_l_attn = AttentionNet(d_l + d_a + d_v, d_av2l_h, dropout)
         self.proj_avl2l = nn.Linear(d_l + d_a + d_v, d_l)
         self.enc_av_comp = TransformerEncoder(embed_dim=d_a + d_v,
                                               num_heads=n_head_av,
                                               layers=n_layers_av,
-                                              attn_dropout=0.0)
+                                              attn_dropout=dropout)
         self.dec_l = DecisionNet(input_dim=d_l, output_dim=ds.output_dim)
         self.dec_av = DecisionNet(input_dim=d_l, output_dim=ds.output_dim)
         self.dec_lav = DecisionNet(input_dim=d_l + d_a + d_v, output_dim=ds.output_dim)
         self.mode = L_MODE
         self.criterion = self.ds.get_loss()
+        self.dropout = dropout
 
     def forward(self, x_l=None, x_a=None, x_v=None, train_l=False, train_av=False):
         """
