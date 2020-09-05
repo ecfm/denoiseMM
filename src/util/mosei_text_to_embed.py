@@ -41,7 +41,7 @@ def loadGloveModel(gloveFile, vocab):
     print("Loading Glove Model")
     f = open(gloveFile,'r')
     model = defaultdict(lambda: np.random.random(300))
-    for line in f:
+    for line in tqdm(f):
         splitLine = line.split(' ')
         word = splitLine[0]
         if word in vocab:
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     dic['sp'] = sp_vec
     for split in ['train', 'valid', 'test']:
         text_embed = []
-        for sent in dataset[split][RAW_TEXT]:
+        for sent in tqdm(dataset[split][RAW_TEXT]):
             sent_embed = [dic[w] for w in sent]
             text_embed.append(sent_embed)
         dataset[split]['text'] = np.array(text_embed)
