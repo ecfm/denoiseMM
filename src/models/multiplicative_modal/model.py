@@ -72,11 +72,19 @@ class Model(nn.Module):
         return output
 
     def train_eval(self, instance_dir, train_loader, valid_loader, test_loader,
-                   num_epochs, patience_epochs, lr):
+                   num_epochs, patience_epochs, lr, mode="train"):
+        if mode == "test":
+           logs=[]
+           eval_test_metrics, eval_test_output_all = self.get_results_no_grad(test_loader)
+           logs.append({**{"test." + k: v for k, v in eval_test_metrics.items()}})
+           print('test', eval_test_metrics.items())
+           logs.append({**{"test." + k: v for k, v in eval_test_metrics.items()}})
+           best_result = {**{"test." + k: v for k, v in eval_test_metrics.items()}}
+           return logs, best_result
         optimizer = optim.Adam(self.parameters(), lr=lr)
         self.best_epoch = -1
         model_path = os.path.join(instance_dir, 'checkpoint.pytorch')
-        best_metrics = None
+        self.best_metrics = None
         logs = []
         all_train_metrics = []
         all_valid_metrics = []
@@ -107,7 +115,7 @@ class Model(nn.Module):
                          **{"valid." + k: v for k, v in valid_metrics.items()},
                          **{"test." + k: v for k, v in test_metrics.items()}})
             print('epoch',  epoch, train_metrics.items(), "valid." ,valid_metrics.items(), "test", test_metrics.items())
-            if self.ds.is_better_metric(valid_metrics, best_metrics):
+            if self.ds.is_better_metric(valid_metrics, self.best_metrics):
                 self.best_metrics = valid_metrics
                 self.best_epoch = epoch
                 torch.save({
