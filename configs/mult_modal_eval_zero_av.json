@@ -1,0 +1,7 @@
+{
+  "model": "multiplicative_modal",
+  "dataset": "mosi",
+  "data_path": "/work/xiaoyam/private/Summer19/Research/11777/denoiseMM/data/zeros/mosei_zero_av.pkl",
+  "max_threads": 1,
+  "config_eval": ["mult_modal_conf0/6838107a670a1111163415ce465b6fd4"]
+}

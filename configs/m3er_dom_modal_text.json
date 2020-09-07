@@ -1,0 +1,7 @@
+{
+  "model": "M3ER",
+  "dataset": "mosi",
+  "data_path": "/work/xiaoyam/private/Summer19/Research/11777/denoiseMM/data/zeros/mosei_zero_text.pkl",
+  "max_threads": 1,
+  "config_eval": ["m3er_conf0/07d1adbff19fd3370bf6a9fc09f64b54"]
+}
