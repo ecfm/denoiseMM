@@ -1,0 +1,27 @@
+{
+  "model": "my_model_av2l_loss_simplified",
+  "dataset": "mosi",
+  "data_path": "data/mosei_random_shuffle_var_point5.pkl",
+  "max_threads": 2,
+  "gpus": [0],
+  "model_params": {
+      "d_l": [80, 100, 150, 200],
+      "d_a": [10, 20, 30],
+      "d_v": [20, 40, 60],
+      "n_head_l": [2, 5, 10],
+      "n_layers_l": [2, 4, 6],
+      "n_head_av": [2, 5, 10],
+      "n_layers_av": [2, 4, 6],
+      "n_head_av2l": [2, 5, 10],
+      "n_layers_av2l": [1, 2, 4],
+      "d_av2l_h": [30, 50, 100],
+      "dropout": [0, 0.1, 0.2]
+  },
+  "train_params": {
+      "batch_size": [128],
+      "num_epochs": [500],
+      "patience_epochs": [20],
+      "beta": [0.4, 0.6, 1, 2],
+      "lr": [0.001]
+  }
+}

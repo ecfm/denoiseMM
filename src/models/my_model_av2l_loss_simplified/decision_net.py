@@ -18,4 +18,4 @@ class DecisionNet(nn.Module):
         last_hs_proj = self.proj2(F.relu(self.proj1(input)))
 
         output = self.out_layer(last_hs_proj)
-        return output.squeeze()
+        return last_hs_proj, output.squeeze()

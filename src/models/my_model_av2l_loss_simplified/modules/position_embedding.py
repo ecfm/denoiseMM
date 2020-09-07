@@ -12,15 +12,11 @@ def make_positions(tensor, padding_idx, left_pad):
     is added on the left side (left_pad=True) or right side (left_pad=False).
     """
     max_pos = padding_idx + 1 + tensor.size(1)
-    device = 'cpu'
-    buf_name = f'range_buf_{device}'
-    if not hasattr(make_positions, buf_name):
-        setattr(make_positions, buf_name, tensor.new())
-    setattr(make_positions, buf_name, getattr(make_positions, buf_name).type_as(tensor))
-    if getattr(make_positions, buf_name).numel() < max_pos:
-        torch.arange(padding_idx + 1, max_pos, out=getattr(make_positions, buf_name))
+    buf = tensor.new()
+    if buf.numel() < max_pos:
+        torch.arange(padding_idx + 1, max_pos, out=buf)
     mask = tensor.ne(padding_idx)
-    positions = getattr(make_positions, buf_name)[:tensor.size(1)].expand_as(tensor)
+    positions = buf[:tensor.size(1)].expand_as(tensor)
     if left_pad:
         positions = positions - mask.size(1) + mask.long().sum(dim=1).unsqueeze(1)
     new_tensor = tensor.clone()
