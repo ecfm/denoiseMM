@@ -77,7 +77,6 @@ class Model(nn.Module):
         if mode == "test":
            logs=[]
            eval_test_metrics, eval_test_output_all = self.get_results_no_grad(test_loader)
-           logs.append({**{"test." + k: v for k, v in eval_test_metrics.items()}})
            print('test', eval_test_metrics.items()) 
            logs.append({**{"test." + k: v for k, v in eval_test_metrics.items()}})
            best_result = {**{"test." + k: v for k, v in eval_test_metrics.items()}}
