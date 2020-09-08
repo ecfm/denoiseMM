@@ -47,6 +47,9 @@ def eval(instance_dir, data_path):
         num_workers=1,
     )
     checkpoint = torch.load(model_path)
+    print(checkpoint['epoch'])
+    print(checkpoint['test_metrics'])
+    print(checkpoint['valid_metrics'])
     model = model_class(devices[0], dataset_class, **params["model_params"])
     model.load_state_dict(checkpoint['state'])
     model.to(devices[0])
