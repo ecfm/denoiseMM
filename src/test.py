@@ -42,7 +42,7 @@ def eval(instance_dir, data_path):
     test_dataset = dataset_class(data_path, cls="test")
     test_loader = Data.DataLoader(
         dataset=test_dataset,
-        batch_size=1024,
+        batch_size=4096,
         shuffle=False,
         num_workers=1,
     )
