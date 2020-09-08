@@ -47,14 +47,21 @@ def eval(instance_dir, data_path):
         num_workers=1,
     )
     checkpoint = torch.load(model_path)
-    print(checkpoint['epoch'])
-    print(checkpoint['test_metrics'])
-    print(checkpoint['valid_metrics'])
     model = model_class(devices[0], dataset_class, **params["model_params"])
     model.load_state_dict(checkpoint['state'])
     model.to(devices[0])
-    test_metrics, _ = model.get_results_no_grad(test_loader)
-    print(test_metrics)
+    print(f"epoch {checkpoint['epoch']}")
+    test_metrics, test_output = model.get_results_no_grad(test_loader)
+    print(f"saved test {checkpoint['test_metrics']}")
+    print(checkpoint['test_outputs'])
+    print(f"test {test_metrics}")
+    print(test_output[:20])
+
+    valid_metrics, valid_output = model.get_results_no_grad(valid_loader)
+    print(f"saved valid {checkpoint['valid_metrics']}")
+    print(checkpoint['valid_outputs'])
+    print(f"valid {valid_metrics}")
+    print(valid_output[:20])
 
 
 def get_dataset_class(config):

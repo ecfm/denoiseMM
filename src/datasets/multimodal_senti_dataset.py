@@ -29,9 +29,7 @@ class MultimodalSentiDataset(Data.Dataset):
     def __init__(self, data_path, cls="train"):
         self.data_path = data_path
         self.cls = cls
-        if len(MultimodalSentiDataset.trainset.y) != 0 and cls != "train":
-            print("Data has been previously loaded, fetching from previous lists.")
-        else:
+        if len(MultimodalSentiDataset.trainset.y) == 0:
             self.load_data()
 
         if self.cls == "train":
