@@ -57,6 +57,14 @@ def eval(instance_dir, data_path):
     print(f"test {test_metrics}")
     print(test_output[:20])
 
+
+    valid_dataset = dataset_class(data_path, cls="valid")
+    valid_loader = Data.DataLoader(
+        dataset=valid_dataset,
+        batch_size=4096,
+        shuffle=False,
+        num_workers=1,
+    )
     valid_metrics, valid_output = model.get_results_no_grad(valid_loader)
     print(f"saved valid {checkpoint['valid_metrics']}")
     print(checkpoint['valid_outputs'])
