@@ -35,13 +35,6 @@ def eval(instance_dir, data_path):
         devices = ["cuda:{}".format(i) for i in gpus]
     else:
         devices = ["cpu"]
-    global all_results_path, all_results
-    all_results_path = os.path.join(grid_dir, "all_results.csv")
-    if os.path.isfile(all_results_path):
-        all_results = pandas.read_csv(all_results_path)
-    else:
-        all_results = pandas.DataFrame()
-
     model_module = importlib.import_module('models.%s.model' % config['model'])
     global model_class
     model_class = model_module.Model
