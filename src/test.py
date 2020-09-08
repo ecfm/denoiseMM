@@ -53,9 +53,9 @@ def eval(instance_dir, data_path):
     print(f"epoch {checkpoint['epoch']}")
     test_metrics, test_output = model.get_results_no_grad(test_loader)
     print(f"saved test {checkpoint['test_metrics']}")
-    print(checkpoint['test_outputs'])
+    print(checkpoint['test_outputs'][:100])
     print(f"test {test_metrics}")
-    print(test_output[:20])
+    print(test_output[:100])
 
 
     valid_dataset = dataset_class(data_path, cls="valid")
@@ -67,9 +67,9 @@ def eval(instance_dir, data_path):
     )
     valid_metrics, valid_output = model.get_results_no_grad(valid_loader)
     print(f"saved valid {checkpoint['valid_metrics']}")
-    print(checkpoint['valid_outputs'])
+    print(checkpoint['valid_outputs'][:100])
     print(f"valid {valid_metrics}")
-    print(valid_output[:20])
+    print(valid_output[:100])
 
 
 def get_dataset_class(config):
