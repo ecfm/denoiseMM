@@ -23,9 +23,10 @@ torch.backends.cudnn.benchmark = True
 
 
 def eval(instance_dir, data_path):
-    global gpus, grid_dir, devices, dataset_class
-    with open(os.path.join(instance_dir, "params.json"), 'r') as f:
+    with open(os.path.join(os.path.dirname(instance_dir), "config.json"), 'r') as f:
         config = json.load(f)
+    with open(os.path.join(instance_dir, "params.json"), 'r') as f:
+        params = json.load(f)
     model_path = os.path.join(instance_dir, "checkpoint.pytorch")
     if torch.cuda.is_available():
         if "gpus" in config.keys():
@@ -35,9 +36,9 @@ def eval(instance_dir, data_path):
         devices = ["cuda:{}".format(i) for i in gpus]
     else:
         devices = ["cpu"]
-    model_module = importlib.import_module('models.%s.model' % config['model'])
-    global model_class
+    model_module = importlib.import_module('models.%s.model' % 'my_model_av2l_loss_simplified')
     model_class = model_module.Model
+    dataset_class = get_dataset_class(config)
     test_dataset = dataset_class(data_path, cls="test")
     test_loader = Data.DataLoader(
         dataset=test_dataset,
@@ -46,7 +47,7 @@ def eval(instance_dir, data_path):
         num_workers=1,
     )
     checkpoint = torch.load(model_path)
-    model = model_class(devices[0], dataset_class, **config["model_params"])
+    model = model_class(devices[0], dataset_class, **params["model_params"])
     model.load_state_dict(checkpoint['state'])
     model.to(devices[0])
     test_metrics, _ = model.get_results_no_grad(test_loader)
