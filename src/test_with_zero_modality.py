@@ -23,7 +23,7 @@ random.seed(0)
 torch.backends.cudnn.benchmark = True
 
 
-def eval(instance_dir, data_path):
+def eval(instance_dir, data_path, zero_mods):
     with open(os.path.join(os.path.dirname(instance_dir), "config.json"), 'r') as f:
         config = json.load(f)
     with open(os.path.join(instance_dir, "params.json"), 'r') as f:
@@ -40,7 +40,7 @@ def eval(instance_dir, data_path):
     model_module = importlib.import_module('models.%s.model' % 'my_model_av2l_loss_simplified')
     model_class = model_module.Model
     dataset_class = get_dataset_class(config)
-    test_dataset = dataset_class(data_path, cls="test")
+    test_dataset = dataset_class(data_path, zero_mods, cls="test")
     test_dataset.text = np.zeros_like(test_dataset.text)
     test_loader = Data.DataLoader(
         dataset=test_dataset,
@@ -76,7 +76,7 @@ def eval(instance_dir, data_path):
 
 def get_dataset_class(config):
     if config['dataset'] in ['mosi', 'mosei']:
-        dataset_module = 'multimodal_senti_dataset'
+        dataset_module = 'multimodal_zero_mod_dataset'
         module_path = "datasets.%s" % dataset_module
         return importlib.import_module(module_path).MultimodalSentiDataset
 
@@ -85,7 +85,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Grid search')
     parser.add_argument("config_path", metavar="CONFIG", type=str, help="config file path")
     parser.add_argument("data_path", metavar="DATA", type=str, help="data file path")
+    parser.add_argument("zero_mods", metavar="ZEROS", type=str, help="modalities to be masked")
 
     args = parser.parse_args()
-    eval(args.config_path, args.data_path)
+    eval(args.config_path, args.data_path, args.zero_mods.split(','))
 
