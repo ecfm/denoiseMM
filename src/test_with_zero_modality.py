@@ -41,7 +41,6 @@ def eval(instance_dir, data_path, zero_mods):
     model_class = model_module.Model
     dataset_class = get_dataset_class(config)
     test_dataset = dataset_class(data_path, zero_mods, cls="test")
-    test_dataset.text = np.zeros_like(test_dataset.text)
     test_loader = Data.DataLoader(
         dataset=test_dataset,
         batch_size=4096,
