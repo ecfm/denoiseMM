@@ -49,23 +49,30 @@ def training_thread(device_idx, config):
                 device, instance_id, model_params, train_params))
             print("Save grid search results to {}".format(os.path.abspath(instance_dir)))
             start = time.perf_counter()
-            train_dataset = dataset_class(config['data_path'], cls="train")
+            if "zero_mods" in config:
+                train_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="train")
+            else:
+                train_dataset = dataset_class(config['data_path'], cls="train")
             train_loader = Data.DataLoader(
                 dataset=train_dataset,
                 batch_size=train_params['batch_size'],
                 shuffle=True,
                 num_workers=1,
             )
-
-            valid_dataset = dataset_class(config['data_path'], cls="valid")
+            if "zero_mods" in config:
+                valid_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="valid")
+            else:
+                valid_dataset = dataset_class(config['data_path'], cls="valid")
             valid_loader = Data.DataLoader(
                 dataset=valid_dataset,
                 batch_size=train_params['batch_size'],
                 shuffle=False,
                 num_workers=1,
             )
-
-            test_dataset = dataset_class(config['data_path'], cls="test")
+            if "zero_mods" in config:
+                test_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="test")
+            else:
+                test_dataset = dataset_class(config['data_path'], cls="test")
             test_loader = Data.DataLoader(
                 dataset=test_dataset,
                 batch_size=train_params['batch_size'],
@@ -167,7 +174,10 @@ def grid_search(config_path):
 
 def get_dataset_class(config):
     if config['dataset'] in ['mosi', 'mosei']:
-        dataset_module = 'multimodal_senti_dataset'
+        if "zero_mods" in config:
+            dataset_module = 'multimodal_zero_mod_dataset'
+        else:
+            dataset_module = 'multimodal_senti_dataset'
         module_path = "datasets.%s" % dataset_module
         return importlib.import_module(module_path).MultimodalSentiDataset
 

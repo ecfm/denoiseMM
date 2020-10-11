@@ -1,8 +1,9 @@
 {
   "model": "my_model_av2l_loss_simplified",
   "dataset": "mosi",
-  "data_path": "data/mosei_random_shuffle_var_1.pkl",
-  "max_threads": 2,
+  "data_path": "data/mosei_senti_data.pkl",
+  "max_threads": 1,
+  "zero_mods": ["text", "audio"],
   "gpus": [0],
   "model_params": {
       "d_l": [80, 100, 150, 200],
@@ -20,7 +21,7 @@
   "train_params": {
       "batch_size": [128],
       "num_epochs": [500],
-      "patience_epochs": [20],
+      "patience_epochs": [40],
       "beta": [0.4, 0.6, 1, 2],
       "lr": [0.001]
   }

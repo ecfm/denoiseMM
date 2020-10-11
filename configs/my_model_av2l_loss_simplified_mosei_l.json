@@ -1,8 +1,9 @@
 {
   "model": "my_model_av2l_loss_simplified",
   "dataset": "mosi",
-  "data_path": "data/mosei_mask_random_train_random_test.pkl",
+  "data_path": "data/mosei_senti_data.pkl",
   "max_threads": 1,
+  "zero_mods": ["vision", "audio"],
   "gpus": [0],
   "model_params": {
       "d_l": [80, 100, 150, 200],
