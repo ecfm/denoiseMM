@@ -1,6 +1,6 @@
 {
   "model": "ablation_my_model_no_av2l",
-  "dataset": "mosi",
+  "dataset": "mosei",
   "data_path": "data/mosei_senti_data.pkl",
   "max_threads": 1,
   "gpus": [0],
