@@ -1,5 +1,5 @@
 {
-  "model": "my_model_av2l_loss_simplified",
+  "model": "ablation_my_model_no_av2l",
   "dataset": "mosi",
   "data_path": "data/mosei_senti_data.pkl",
   "max_threads": 1,
