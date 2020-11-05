@@ -52,9 +52,9 @@ class Model(nn.Module):
         text, audio, and vision should have dimension [batch_size, seq_len, n_features]
         """
         words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
-        words = self.proj_l(words).permute(2, 0, 1)
         if self.mode == L_MODE:
             return words
+        words = self.proj_l(words).permute(2, 0, 1)
         l_latent, outputs_l = self.dec_l(self.enc_l(words)[-1])
         if self.mode == L_MODE:
             return outputs_l
