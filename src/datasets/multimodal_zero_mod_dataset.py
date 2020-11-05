@@ -26,7 +26,7 @@ class MultimodalSentiDataset(Data.Dataset):
     dim_v = -1
     output_dim = 1
 
-    def __init__(self, data_path, zero_mods, cls="train"):
+    def __init__(self, data_path, zero_mods, cls):
         self.data_path = data_path
         self.cls = cls
         if len(MultimodalSentiDataset.trainset.y) == 0:

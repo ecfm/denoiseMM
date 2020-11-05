@@ -50,9 +50,9 @@ def training_thread(device_idx, config):
             print("Save grid search results to {}".format(os.path.abspath(instance_dir)))
             start = time.perf_counter()
             if "zero_mods" in config:
-                train_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="train")
+                train_dataset = dataset_class(config['data_path'], config['zero_mods'], "train")
             else:
-                train_dataset = dataset_class(config['data_path'], cls="train")
+                train_dataset = dataset_class(config['data_path'], "train")
             train_loader = Data.DataLoader(
                 dataset=train_dataset,
                 batch_size=train_params['batch_size'],
@@ -60,9 +60,9 @@ def training_thread(device_idx, config):
                 num_workers=1,
             )
             if "zero_mods" in config:
-                valid_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="valid")
+                valid_dataset = dataset_class(config['data_path'], config['zero_mods'], "valid")
             else:
-                valid_dataset = dataset_class(config['data_path'], cls="valid")
+                valid_dataset = dataset_class(config['data_path'], "valid")
             valid_loader = Data.DataLoader(
                 dataset=valid_dataset,
                 batch_size=train_params['batch_size'],
@@ -70,9 +70,9 @@ def training_thread(device_idx, config):
                 num_workers=1,
             )
             if "zero_mods" in config:
-                test_dataset = dataset_class(config['data_path'], config['zero_mods'], cls="test")
+                test_dataset = dataset_class(config['data_path'], config['zero_mods'], "test")
             else:
-                test_dataset = dataset_class(config['data_path'], cls="test")
+                test_dataset = dataset_class(config['data_path'], "test")
             test_loader = Data.DataLoader(
                 dataset=test_dataset,
                 batch_size=train_params['batch_size'],
