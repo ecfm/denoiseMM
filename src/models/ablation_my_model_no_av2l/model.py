@@ -10,7 +10,6 @@ from models.my_model_av2l_loss_simplified.decision_net import DecisionNet
 from models.my_model_av2l_loss_simplified.modules.transformer import TransformerEncoder
 
 L_MODE = 'L'
-AV_MODE = 'AV'
 LAV_MODE = 'LAV'
 FINAL_MODE = 'FINAL'
 
@@ -30,8 +29,7 @@ class Model(nn.Module):
         self.ds = ds
         self.best_epoch = -1
         self.proj_l = nn.Conv1d(ds.dim_l, d_l, kernel_size=1, padding=0, bias=False)
-        self.proj_a = nn.Conv1d(ds.dim_a, d_a, kernel_size=1, padding=0, bias=False)
-        self.proj_v = nn.Conv1d(ds.dim_v, d_v, kernel_size=1, padding=0, bias=False)
+
         self.proj_a_comp = nn.Conv1d(ds.dim_a, d_a, kernel_size=1, padding=0, bias=False)
         self.proj_v_comp = nn.Conv1d(ds.dim_v, d_v, kernel_size=1, padding=0, bias=False)
 
@@ -39,18 +37,11 @@ class Model(nn.Module):
                                         num_heads=n_head_l,
                                         layers=n_layers_l,
                                         attn_dropout=dropout)
-        self.enc_av2l = TransformerEncoder(embed_dim=d_a + d_v,
-                                           num_heads=n_head_av2l,
-                                           layers=n_layers_av2l,
-                                           attn_dropout=dropout)
-        self.av2l_l_attn = AttentionNet(d_l + d_a + d_v, d_av2l_h, dropout)
-        self.proj_avl2l = nn.Linear(d_l + d_a + d_v, d_l)
         self.enc_av_comp = TransformerEncoder(embed_dim=d_a + d_v,
                                               num_heads=n_head_av,
                                               layers=n_layers_av,
                                               attn_dropout=dropout)
         self.dec_l = DecisionNet(input_dim=d_l, output_dim=ds.output_dim)
-        self.dec_av = DecisionNet(input_dim=d_l, output_dim=ds.output_dim)
         self.dec_lav = DecisionNet(input_dim=d_l + d_a + d_v, output_dim=ds.output_dim)
         self.mode = L_MODE
         self.criterion = self.ds.get_loss()
@@ -103,15 +94,8 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = data
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                if self.mode == AV_MODE:
-                    l_outputs, outputs = self(x_l=words, x_a=covarep, x_v=facet)
-                    l_loss = self.criterion(l_outputs, labels).detach()
-                    av_loss = self.criterion(outputs, labels)
-                    loss = av_loss * torch.pow(l_loss, beta)
-
-                else:
-                    outputs = self(x_l=words, x_a=covarep, x_v=facet)
-                    loss = self.criterion(outputs, labels)
+                outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                loss = self.criterion(outputs, labels)
                 # TODO: why retain_graph?
                 loss.backward(retain_graph=True)
                 optimizer.step()
@@ -144,22 +128,10 @@ class Model(nn.Module):
             else:
                 if epoch - self.best_epoch > patience_epochs:
                     if self.mode == L_MODE:
-                        self.change_to_mode(AV_MODE, model_path, epoch)
-                        set_requires_grad(self.proj_l, False)
-                        set_requires_grad(self.enc_l, False)
-                        set_requires_grad(self.dec_l, False)
-                        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
-                                               lr=lr)
-                    elif self.mode == AV_MODE:
                         self.change_to_mode(LAV_MODE, model_path, epoch)
-                        # TODO: verify if l should require grad
                         set_requires_grad(self.proj_l, False)
                         set_requires_grad(self.enc_l, False)
                         set_requires_grad(self.dec_l, False)
-                        set_requires_grad(self.proj_a, False)
-                        set_requires_grad(self.proj_v, False)
-                        set_requires_grad(self.dec_av, False)
-                        set_requires_grad(self.enc_av2l, False)
                         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                                lr=lr)
                     elif self.mode == LAV_MODE:
@@ -168,10 +140,6 @@ class Model(nn.Module):
                         set_requires_grad(self.proj_l, True)
                         set_requires_grad(self.enc_l, True)
                         set_requires_grad(self.dec_l, False)
-                        set_requires_grad(self.proj_a, True)
-                        set_requires_grad(self.proj_v, True)
-                        set_requires_grad(self.dec_av, False)
-                        set_requires_grad(self.enc_av2l, True)
                         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                                lr=lr)
                     else:
@@ -196,10 +164,7 @@ class Model(nn.Module):
                 words, covarep, facet, inputLen, labels = data
                 words, covarep, facet, inputLen, labels = words.to(device), covarep.to(device), facet.to(
                     device), inputLen.to(device), labels.to(device)
-                if self.mode == AV_MODE:
-                    _, outputs = self(x_l=words, x_a=covarep, x_v=facet)
-                else:
-                    outputs = self(x_l=words, x_a=covarep, x_v=facet)
+                outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 output_all.extend(outputs.tolist())
                 label_all.extend(labels.tolist())
             metrics = self.ds.eval(output_all, label_all)
