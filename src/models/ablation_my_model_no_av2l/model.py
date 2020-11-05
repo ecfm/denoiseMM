@@ -56,7 +56,8 @@ class Model(nn.Module):
         # [seq_len, batch_size,  d_l]
         words = self.proj_l(words).permute(2, 0, 1)
         if self.mode == L_MODE:
-            return self.dec_l(words[-1])
+            l_latent, outputs_l = self.dec_l(words[-1])
+            return outputs_l
         l_latent, outputs_l = self.dec_l(self.enc_l(words)[-1])
         if self.mode == L_MODE:
             return outputs_l
