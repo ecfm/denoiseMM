@@ -122,8 +122,7 @@ class Model(nn.Module):
                 else:
                     outputs = self(x_l=words, x_a=covarep, x_v=facet)
                     loss = self.criterion(outputs, labels)
-                # TODO: why retain_graph?
-                loss.backward(retain_graph=True)
+                loss.backward()
                 optimizer.step()
                 output_all.extend(outputs.tolist())
                 label_all.extend(labels.tolist())

@@ -53,6 +53,8 @@ class Model(nn.Module):
         """
         words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
         words = self.proj_l(words).permute(2, 0, 1)
+        if self.mode == L_MODE:
+            return words
         l_latent, outputs_l = self.dec_l(self.enc_l(words)[-1])
         if self.mode == L_MODE:
             return outputs_l
@@ -96,8 +98,7 @@ class Model(nn.Module):
                     device), inputLen.to(device), labels.to(device)
                 outputs = self(x_l=words, x_a=covarep, x_v=facet)
                 loss = self.criterion(outputs, labels)
-                # TODO: why retain_graph?
-                loss.backward(retain_graph=True)
+                loss.backward()
                 optimizer.step()
                 output_all.extend(outputs.tolist())
                 label_all.extend(labels.tolist())
