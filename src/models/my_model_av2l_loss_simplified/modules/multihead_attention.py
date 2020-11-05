@@ -83,7 +83,7 @@ class MultiheadAttention(nn.Module):
             q = self.in_proj_q(query)
             k = self.in_proj_k(key)
             v = self.in_proj_v(value)
-        q *= self.scaling
+        q = q * self.scaling
 
         if self.bias_k is not None:
             assert self.bias_v is not None
@@ -112,7 +112,7 @@ class MultiheadAttention(nn.Module):
 
         if attn_mask is not None:
             try:
-                attn_weights += attn_mask.unsqueeze(0)
+                attn_weights = attn_weights + attn_mask.unsqueeze(0)
             except:
                 print(attn_weights.shape)
                 print(attn_mask.unsqueeze(0).shape)

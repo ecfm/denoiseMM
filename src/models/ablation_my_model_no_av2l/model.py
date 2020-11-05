@@ -55,9 +55,6 @@ class Model(nn.Module):
         words = F.dropout(x_l.transpose(1, 2), p=0.25, training=self.training)
         # [seq_len, batch_size,  d_l]
         words = self.proj_l(words).permute(2, 0, 1)
-        if self.mode == L_MODE:
-            l_latent, outputs_l = self.dec_l(words[-1])
-            return outputs_l
         l_latent, outputs_l = self.dec_l(self.enc_l(words)[-1])
         if self.mode == L_MODE:
             return outputs_l

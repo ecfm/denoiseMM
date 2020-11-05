@@ -62,7 +62,7 @@ class TransformerEncoder(nn.Module):
         # embed tokens and positions
         x = self.embed_scale * x_in
         if self.embed_positions is not None:
-            x += self.embed_positions(x_in.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
+            x = x + self.embed_positions(x_in.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
         x = F.dropout(x, p=self.dropout, training=self.training)
 
         if x_in_k is not None and x_in_v is not None:
@@ -70,8 +70,8 @@ class TransformerEncoder(nn.Module):
             x_k = self.embed_scale * x_in_k
             x_v = self.embed_scale * x_in_v
             if self.embed_positions is not None:
-                x_k += self.embed_positions(x_in_k.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
-                x_v += self.embed_positions(x_in_v.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
+                x_k = x_k + self.embed_positions(x_in_k.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
+                x_v = x_v + self.embed_positions(x_in_v.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
             x_k = F.dropout(x_k, p=self.dropout, training=self.training)
             x_v = F.dropout(x_v, p=self.dropout, training=self.training)
         
