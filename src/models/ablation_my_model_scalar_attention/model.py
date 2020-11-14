@@ -43,7 +43,7 @@ class Model(nn.Module):
                                            num_heads=n_head_av2l,
                                            layers=n_layers_av2l,
                                            attn_dropout=dropout)
-        self.av2l_l_attn = AttentionNet(d_l + d_l, 2, dropout)
+        self.av2l_l_attn = DecisionNet(d_l + d_l, 2)
         self.proj_avl2l = nn.Linear(d_a + d_v, d_l)
         self.enc_av_comp = TransformerEncoder(embed_dim=d_a + d_v,
                                               num_heads=n_head_av,
@@ -76,7 +76,7 @@ class Model(nn.Module):
         av2l_l_stack = torch.stack([l_latent.detach(), av2l_intermediate.detach()], dim=1)
 
         # [batch_size,  1, 2] * [batch_size,  2, d_l] = [batch_size, d_l]
-        av2l_l_weighted = torch.matmul(self.av2l_l_attn(av2l_l_cat), av2l_l_stack).squeeze()
+        av2l_l_weighted = torch.matmul(F.softmax(self.av2l_l_attn(av2l_l_cat)[1], dim=1).unsqueeze(1), av2l_l_stack).squeeze()
         combined_l_latent, outputs_av = self.dec_av(av2l_l_weighted)
 
         if self.mode == AV_MODE:

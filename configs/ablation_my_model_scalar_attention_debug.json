@@ -1,0 +1,26 @@
+{
+  "model": "ablation_my_model_scalar_attention",
+  "dataset": "mosei",
+  "data_path": "data/mosei_senti_data.pkl",
+  "max_threads": 1,
+  "gpus": [0],
+  "model_params": {
+      "d_l": [20],
+      "d_a": [10],
+      "d_v": [40],
+      "n_head_l": [2, 5, 10],
+      "n_layers_l": [1],
+      "n_head_av": [2, 5, 10],
+      "n_layers_av": [1],
+      "n_head_av2l": [2, 5, 10],
+      "n_layers_av2l": [1],
+      "dropout": [0, 0.1, 0.2]
+  },
+  "train_params": {
+      "batch_size": [16],
+      "num_epochs": [500],
+      "patience_epochs": [40],
+      "beta": [0.4, 0.6, 1, 2],
+      "lr": [0.001]
+  }
+}
