@@ -48,13 +48,6 @@ class Model(nn.Module):
         _, outputs = self.dec_av(av_latent_comp)
         return outputs
 
-    def change_to_mode(self, to_mode, model_path, epoch):
-        self.mode = to_mode
-        checkpoint = torch.load(model_path, map_location=self.device)
-        self.load_state_dict(checkpoint['state'])
-        self.best_epoch = epoch
-        self.best_metrics = None
-
     def train_eval(self, instance_dir, train_loader, valid_loader, test_loader,
                    num_epochs, patience_epochs, lr, beta):
         optimizer = optim.Adam(self.parameters(), lr=lr)
@@ -87,7 +80,6 @@ class Model(nn.Module):
             all_train_metrics.append(train_metrics)
             all_valid_metrics.append(valid_metrics)
             logs = logs.append({'epoch': epoch,
-                                'mode': self.mode,
                                 **{"train." + k: v for k, v in train_metrics.items()},
                                 **{"valid." + k: v for k, v in valid_metrics.items()},
                                 **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
@@ -113,7 +105,6 @@ class Model(nn.Module):
         best_valid_metrics = self.ds.get_best_metrics(all_valid_metrics)
         best_test_metrics = self.ds.get_best_metrics(all_test_metrics)
         best_result = {'best_epoch': self.best_epoch,
-                       'final_mode': self.mode,
                        **{"train." + k: v for k, v in best_train_metrics.items()},
                        **{"valid." + k: v for k, v in best_valid_metrics.items()},
                        **{"test." + k: v for k, v in best_test_metrics.items()}}

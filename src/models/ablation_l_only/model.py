@@ -77,7 +77,6 @@ class Model(nn.Module):
             all_train_metrics.append(train_metrics)
             all_valid_metrics.append(valid_metrics)
             logs = logs.append({'epoch': epoch,
-                                'mode': self.mode,
                                 **{"train." + k: v for k, v in train_metrics.items()},
                                 **{"valid." + k: v for k, v in valid_metrics.items()},
                                 **{"test." + k: v for k, v in test_metrics.items()}}, ignore_index=True)
@@ -103,7 +102,6 @@ class Model(nn.Module):
         best_valid_metrics = self.ds.get_best_metrics(all_valid_metrics)
         best_test_metrics = self.ds.get_best_metrics(all_test_metrics)
         best_result = {'best_epoch': self.best_epoch,
-                       'final_mode': self.mode,
                        **{"train." + k: v for k, v in best_train_metrics.items()},
                        **{"valid." + k: v for k, v in best_valid_metrics.items()},
                        **{"test." + k: v for k, v in best_test_metrics.items()}}
