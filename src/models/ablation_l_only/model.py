@@ -12,12 +12,12 @@ from models.my_model_av2l_loss_simplified.modules.transformer import Transformer
 
 class Model(nn.Module):
     def __init__(self, device, dataset_class,
-                 d_l, d_a, d_v, n_head_l, n_layers_l, n_head_av2l, n_layers_av2l, d_av2l_h, n_head_av, n_layers_av,
+                 d_l, n_head_l, n_layers_l,
                  dropout):
         """
         Construct a Net model.
         """
-        if d_l % n_head_l != 0 or (d_a + d_v) % n_head_av != 0:
+        if d_l % n_head_l != 0:
             raise ValueError("SKIP")
         super(Model, self).__init__()
         self.device = device
